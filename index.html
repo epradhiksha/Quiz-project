@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAB ANALYSIS v2.0 | Breaking Bad Quiz</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Background Elements -->
+    <div id="background-canvas"></div>
+    <div class="lab-overlay"></div>
+
+    <div id="app">
+        <!-- 1. ENTRY / LOGIN -->
+        <section id="login-screen" class="screen active">
+            <div class="header">
+                <h1>LAB ENTRY</h1>
+                <p class="subtitle">BLUE SKY RESEARCH PROTOCOL</p>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Project Team Name</label>
+                <input type="text" id="team-name" placeholder="Enter team name..." autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Team Lead Name</label>
+                <input type="text" id="lead-name" placeholder="Enter team lead's name..." autocomplete="off">
+            </div>
+
+            <button id="join-btn">Initialize Session</button>
+            <p id="login-error" style="color: var(--danger-red); font-size: 0.8rem; text-align: center; display: none;">
+            </p>
+        </section>
+
+        <!-- 2. LOBBY / WAITING -->
+        <section id="lobby-screen" class="screen">
+            <div class="header">
+                <h1>LOBBY</h1>
+                <p class="subtitle" id="display-team-id">PROJECT: NULL</p>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Authorized Personnel</label>
+                <div id="lobby-list" class="lobby-list">
+                    <!-- Dynamic badges -->
+                </div>
+            </div>
+
+            <div class="waiting-msg">
+                [ SYSTEM READY. WAITING FOR START COMMAND ]
+            </div>
+
+            <!-- Host panel removed for User Module -->
+        </section>
+
+        <!-- 3. REAL-TIME QUIZ -->
+        <section id="quiz-screen" class="screen">
+            <div class="quiz-header">
+                <div class="stat-box">
+                    <span class="stat-label">BATCH YIELD</span>
+                    <span id="label-score" class="stat-value">0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">TIMER</span>
+                    <span id="label-timer" class="stat-value" style="color: var(--toxic-green);">15.0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">STREAK</span>
+                    <span id="label-streak" class="stat-value">0</span>
+                </div>
+            </div>
+
+            <div class="timer-wrap">
+                <div id="timer-line" class="timer-line"></div>
+            </div>
+
+            <div class="question-area">
+                <h2 id="question-text" class="question-text">Acquiring parameters...</h2>
+                <div id="options-stack" class="options-grid">
+                    <!-- Buttons -->
+                </div>
+            </div>
+
+            <div id="action-feedback" style="text-align: center; min-height: 30px;">
+                <!-- Correct/Time-based messages -->
+            </div>
+        </section>
+
+        <!-- 4. FINAL REPORT -->
+        <section id="results-screen" class="screen">
+            <div class="header">
+                <h1>FINAL REPORT</h1>
+                <p class="subtitle" id="display-final-team">PROJECT TERMINATED</p>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <span class="stat-label">TOTAL YIELD</span>
+                    <div id="final-score" class="large-value">0</div>
+                </div>
+                <div class="summary-card">
+                    <span class="stat-label">PEAK PURITY</span>
+                    <div id="final-streak" class="large-value">0</div>
+                </div>
+            </div>
+
+            <div class="summary-card" style="margin-top: 20px;">
+                <span class="stat-label">OVERALL ACCURACY</span>
+                <div id="final-accuracy" class="large-value" style="font-size: 2rem;">0%</div>
+            </div>
+
+            <button id="reboot-btn" style="margin-top: 20px;">Start New Batch</button>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
