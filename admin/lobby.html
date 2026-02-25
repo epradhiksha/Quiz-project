@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heisenbyte | Admin Lobby</title>
+    <meta name="description" content="Heisenbyte Quiz – Admin Lobby, waiting for quiz to begin" />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/admin.css" />
+
+    <style>
+        /* Radar pulse animation behind lobby card */
+        .radar-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 255, 65, 0.15);
+            animation: radarExpand 3s ease-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes radarExpand {
+            0% {
+                width: 60px;
+                height: 60px;
+                opacity: 0.8;
+                transform: translate(-50%, -50%);
+            }
+
+            100% {
+                width: 400px;
+                height: 400px;
+                opacity: 0;
+                transform: translate(-50%, -50%);
+            }
+        }
+
+        .radar-wrap {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .radar-ring:nth-child(2) {
+            animation-delay: 1s;
+        }
+
+        .radar-ring:nth-child(3) {
+            animation-delay: 2s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Ambient Background -->
+    <div class="bg-grid"></div>
+    <div class="bg-scanline"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Page -->
+    <div class="page-wrap">
+
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="logo-wrap">
+                <div class="logo-icon" aria-hidden="true">⚗️</div>
+                <span class="logo-text">HEIS<span>EN</span>BYTE</span>
+            </div>
+            <div class="header-right">
+                <span class="admin-badge">ADMIN · LOBBY</span>
+                <button class="btn btn-logout" id="logout-btn" title="Logout">⏻ LOGOUT</button>
+            </div>
+        </header>
+
+        <!-- Lobby Main -->
+        <main class="lobby-page">
+            <div class="lobby-main">
+
+                <!-- Status card with radar -->
+                <div class="lobby-status-card" style="position:relative;overflow:visible;">
+                    <!-- Radar rings centered in card -->
+                    <div class="radar-wrap">
+                        <div class="radar-ring"></div>
+                        <div class="radar-ring"></div>
+                        <div class="radar-ring"></div>
+                    </div>
+
+                    <!-- Status pill -->
+                    <div class="status-indicator">
+                        <div class="status-dot amber" id="quiz-status-dot"></div>
+                        <span id="quiz-status-text">WAITING · NOT STARTED</span>
+                    </div>
+
+                    <h2 class="lobby-title">ADMIN LOBBY</h2>
+                    <p class="lobby-sub">Configure your session and launch when ready</p>
+
+                    <!-- Start button -->
+                    <button class="btn btn-primary btn-xl" id="start-quiz-btn" style="min-width:220px;">
+                        ⚡ START QUIZ
+                    </button>
+
+                    <!-- Small note -->
+                    <p style="margin-top:16px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);">
+                        A confirmation prompt will appear before starting.
+                    </p>
+                </div>
+
+                <!-- Stats row -->
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <span class="stat-value" id="participant-count">0</span>
+                        <span class="stat-label">Participants Online</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="question-count">—</span>
+                        <span class="stat-label">Questions Loaded</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">15s</span>
+                        <span class="stat-label">Timer / Question</span>
+                    </div>
+                </div>
+
+                <!-- Info banner -->
+                <div style="
+        background: rgba(0,255,65,0.04);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 24px;
+        max-width: 560px;
+        width: 100%;
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--text-dim);
+        line-height: 2;
+        letter-spacing: 0.5px;
+      ">
+                    <div style="color:var(--green);margin-bottom:6px;letter-spacing:2px;">SYSTEM STATUS</div>
+                    ✓ Firebase connection active<br />
+                    ✓ Real-time listeners initialized<br />
+                    ✓ Admin session verified<br />
+                    ✓ Participant tracking ready
+                </div>
+
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay hidden" id="confirm-modal" role="dialog" aria-modal="true"
+        aria-labelledby="confirm-title">
+        <div class="modal-box">
+            <div class="modal-icon">⚡</div>
+            <h2 class="modal-title text-green" id="confirm-title" style="letter-spacing:2px;">START QUIZ?</h2>
+            <p class="modal-desc" id="confirm-desc">
+                This will set the quiz state to <strong style="color:var(--green)">LIVE</strong> and broadcast to all
+                connected participants in real time.<br /><br />
+                Make sure all participants are connected before proceeding.
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="confirm-no">✕ CANCEL</button>
+                <button class="btn btn-primary" id="confirm-yes">⚡ START NOW</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/lobby.js"></script>
+
+</body>
+
+</html>

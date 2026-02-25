@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heisenbyte | Admin Login</title>
+    <meta name="description" content="Heisenbyte Quiz System – Secure Admin Login" />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/admin.css" />
+
+    <style>
+        /* Login-page specific floating particles */
+        .particle {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float linear infinite;
+            opacity: 0;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 0.6;
+            }
+
+            90% {
+                opacity: 0.3;
+            }
+
+            100% {
+                transform: translateY(-100px) rotate(720deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Ambient Background -->
+    <div class="bg-grid"></div>
+    <div class="bg-scanline"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Login Page -->
+    <div class="login-page">
+        <div class="login-card" id="login-card">
+
+            <!-- Chemical formula decorations -->
+            <span class="chemical-formula cf1">C₈H₁₀N₄O₂</span>
+            <span class="chemical-formula cf2">CH₃–NH–CO–NH₂</span>
+            <span class="chemical-formula cf3">C₁₀H₁₅N</span>
+
+            <!-- Logo -->
+            <div class="login-logo">
+                <div class="logo-icon-big" role="img" aria-label="Heisenbyte Logo">⚗️</div>
+                <h1 class="login-title">HEISENBYTE</h1>
+                <p class="login-subtitle">ADMIN TERMINAL · RESTRICTED ACCESS</p>
+            </div>
+
+            <!-- Error -->
+            <div class="error-msg" id="error-msg" role="alert"></div>
+
+            <!-- Form -->
+            <form class="login-form" id="login-form" autocomplete="off" novalidate>
+
+                <div class="input-group">
+                    <label class="field-label" for="admin-email">ADMIN EMAIL</label>
+                    <input class="field-input" type="email" id="admin-email" name="admin-email"
+                        placeholder="Enter admin email" autocomplete="off" spellcheck="false" required />
+                </div>
+
+                <div class="input-group">
+                    <label class="field-label" for="admin-password">ACCESS CODE</label>
+                    <div style="position:relative;">
+                        <input class="field-input" type="password" id="admin-password" name="admin-password"
+                            placeholder="Enter access code" autocomplete="off" required style="padding-right: 48px;" />
+                        <button type="button" id="eye-toggle" style="
+              position: absolute;
+              right: 14px;
+              top: 50%;
+              transform: translateY(-50%);
+              background: none;
+              border: none;
+              cursor: pointer;
+              font-size: 16px;
+              opacity: 0.6;
+              transition: opacity 0.2s;
+            " title="Toggle password visibility">👁</button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" type="submit" id="login-btn">
+                    <span id="btn-loader" class="hidden"
+                        style="display:inline-block;width:14px;height:14px;border:2px solid #000;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;"></span>
+                    <span id="btn-text">ACCESS SYSTEM</span>
+                </button>
+
+            </form>
+
+            <!-- Footer note -->
+            <p
+                style="text-align:center;font-family:var(--font-mono);font-size:0.65rem;color:var(--grey);margin-top:24px;letter-spacing:1px;">
+                UNAUTHORIZED ACCESS IS PROHIBITED
+            </p>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #btn-loader {
+            margin-right: 4px;
+        }
+    </style>
+
+    <!-- Firebase CDN (Compat SDK v9 compat for easy use) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+
+    <!-- Floating particles -->
+    <script>
+        const colors = ["#00ff41", "#00cc33", "#004d14"];
+        for (let i = 0; i < 18; i++) {
+            const p = document.createElement("div");
+            p.className = "particle";
+            const size = Math.random() * 5 + 2;
+            p.style.cssText = `
+      width:${size}px;height:${size}px;
+      background:${colors[Math.floor(Math.random() * colors.length)]};
+      left:${Math.random() * 100}vw;
+      animation-duration:${8 + Math.random() * 12}s;
+      animation-delay:${Math.random() * 8}s;
+    `;
+            document.body.appendChild(p);
+        }
+    </script>
+
+</body>
+
+</html>
