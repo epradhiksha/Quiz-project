@@ -1,11 +1,56 @@
 {
   "rules": {
+    // ─── Presence / Session Tracking ──────────────────────────────────────────
+    // Uses Firebase Realtime Database for real-time online/offline detection.
+    // onDisconnect() hooks are used client-side to auto-remove presence on drop.
     "presence": {
       ".read": "auth != null",
-      ".write": "auth != null",
       "$uid": {
-        ".validate": "newData.hasChildren(['name', 'connectedAt'])"
+        // Only the owner can write their own presence node
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['online', 'connectedAt', 'displayName'])",
+        "online": {
+          ".validate": "newData.isBoolean()"
+        },
+        "connectedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "displayName": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64"
+        },
+        // No extra fields allowed
+        "$other": {
+          ".validate": false
+        }
       }
+    },
+
+    // ─── Session Tracking (multi-device detection) ────────────────────────────
+    // Each user tracks their active sessions. Multiple sessions = multiple devices.
+    // Cloud Function checks this to warn about multi-device logins.
+    "sessions": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "$sessionId": {
+          ".validate": "newData.hasChildren(['deviceInfo', 'connectedAt'])",
+          "deviceInfo": {
+            ".validate": "newData.isString()"
+          },
+          "connectedAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+
+    // ─── Deny everything else ─────────────────────────────────────────────────
+    "$other": {
+      ".read": false,
+      ".write": false
     }
   }
 }
