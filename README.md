@@ -1,175 +1,229 @@
-# 🧪 Heisenbyte Real-Time Quiz — Backend
+# 🎯 Heisenbyte Real-Time Technical Quiz System
 
-**Branch:** `features/backend`
-
-This branch contains the complete Firebase backend for the Heisenbyte Real-Time Quiz symposium app.
+A real-time, admin-controlled technical quiz platform developed for symposium events.  
+This system enables multiple teams to participate simultaneously with time-based scoring, centralized admin control, secure backend validation, and live leaderboard updates using Firebase.
 
 ---
 
-## 📁 File Structure
+# 📌 Project Overview
 
+The Heisenbyte Quiz System is designed to conduct technical quiz events in a fully controlled and scalable manner.
+
+The system allows:
+
+- 👥 Multiple teams to participate
+- 🎛 Admin to control question flow in real time
+- ⏱ 15-second timer per question
+- 🧮 Time-based dynamic scoring
+- 🏆 Automatic leaderboard ranking
+- 🔒 Secure score validation using Cloud Functions
+
+This project follows a modular architecture with proper GitHub workflow and role-based development.
+
+---
+
+# 🚀 Key Features
+
+## 👑 Admin Panel
+- Secure login using Firebase Email Authentication
+- Start and end quiz
+- Activate questions
+- Lock submissions
+- Reveal correct answers
+- Control question navigation
+- Display leaderboard
+
+## 👥 User Panel
+- Anonymous login for fast access
+- Team registration
+- Real-time question updates
+- 15-second countdown timer
+- Single-answer submission per question
+- Score display after submission
+
+## 🧠 Backend Engine
+- Prevents duplicate submissions
+- Validates submission timing
+- Calculates dynamic score
+- Updates team scores securely
+- Restricts unauthorized access
+
+---
+
+# 🏗 System Architecture
+            Admin Panel
+                 ↓
+       Firestore (Quiz State)
+                 ↓
+    Users (Real-Time Listeners)
+                 ↓
+       Responses Collection
+                 ↓
+     Cloud Function (Scoring)
+                 ↓
+        Teams Score Updated
+                 ↓
+          Leaderboard
+
+
+---
+
+# 🛠 Tech Stack
+
+| Component | Technology |
+|------------|------------|
+| Frontend | HTML, CSS, JavaScript |
+| Database | Firebase Firestore |
+| Authentication | Firebase Auth (Anonymous + Email) |
+| Backend Logic | Firebase Cloud Functions |
+| Hosting | Firebase Hosting |
+| Version Control | GitHub (Branch-based workflow) |
+
+---
+
+# 📂 Project Structure
+
+
+---
+
+# 🗄 Firestore Database Structure
+
+## 1️⃣ quiz (Collection)
+
+Document: `metadata`
+
+Fields:
+- quizStatus (waiting | inProgress | ended)
+- currentQuestionId
+- questionStatus (inactive | active | locked | revealed)
+- questionStartTime
+- questionDuration
+
+This document controls the entire quiz state.
+
+---
+
+## 2️⃣ questions (Collection)
+
+Each document contains:
+- questionText
+- options (A, B, C, D)
+- correctAnswer
+- basePoints
+
+---
+
+## 3️⃣ teams (Collection)
+
+Each document contains:
+- teamName
+- score
+- createdAt
+
+---
+
+## 4️⃣ responses (Collection)
+
+Each document contains:
+- teamId
+- questionId
+- selectedAnswer
+- submittedAt
+- timeTaken
+- pointsEarned
+
+---
+
+# 🔒 Security Model
+
+✔ Users can read quiz state  
+✔ Users can submit one response per question  
+❌ Users cannot modify scores  
+❌ Users cannot modify quiz state  
+❌ Users cannot access correct answers  
+✔ Only Admin can modify quiz metadata  
+✔ Only Cloud Functions can update team scores  
+
+---
+
+# 🧮 Scoring Logic
+
+If answer is correct:
+Score = BasePoints + (RemainingTime × Multiplier)
+
+If answer is incorrect:
+Score=0 
+
+Late submissions are automatically rejected.
+
+Duplicate submissions are blocked.
+
+---
+
+# 🌿 GitHub Workflow
+
+## Main Branches
+
+- `main` → Production-ready code
+- `develop` → Integration branch
+
+## Feature Branches
+
+- `feature/user-ui`
+- `feature/admin-panel`
+- `feature/backend-functions`
+
+## Workflow Process
+
+1. Create feature branch from `develop`
+2. Implement module
+3. Push to GitHub
+4. Create Pull Request → `develop`
+5. Code review and merge
+6. Final merge → `main`
+
+---
+
+# ⚙️ Setup Instructions
+
+## 1️⃣ Clone Repository
+
+```bash
+git clone https://github.com/your-username/heisenbyte-quiz.git
+cd heisenbyte-quiz
 ```
-features/backend/
-├── firebase.json              # Firebase deploy config (Functions + Firestore + RTDB)
-├── .firebaserc                # Project alias
-├── firestore.rules            # Firestore Security Rules
-├── firestore.indexes.json     # Composite indexes (leaderboard, responses)
-├── database.rules.json        # Realtime Database Rules (presence/sessions)
-└── functions/
-    ├── package.json
-    ├── index.js               # All Cloud Functions
-    ├── .eslintrc.json
-    └── test/
-        └── index.test.js      # Unit tests
-```
 
----
-
-## 🔐 Security Guarantees
-
-| Threat | How it's handled |
-|---|---|
-| **Score tampering** | `teams.score` is written ONLY by Cloud Functions (Admin SDK). Clients get a hard deny. |
-| **Duplicate submissions** | Response doc ID = `{teamId}_q{questionIndex}` — Firestore transaction rejects if doc exists |
-| **Late submissions** | `submitAnswer` compares server `Timestamp.now()` to `questionEndTime` stored in `quizState` |
-| **Refresh during active Q** | `quizState` is real-time; client rehydrates from Firestore on reconnect |
-| **Internet disconnect** | RTDB `onDisconnect()` hook + `cleanupPresence` scheduled function sweeps stale entries |
-| **Multiple device logins** | RTDB `sessions/{uid}/{sessionId}` tracks all active sessions per user |
-| **Unauthorized admin actions** | All admin functions verify `request.auth.token.email === ADMIN_EMAIL` server-side |
-| **Anonymous tampering** | Anonymous users can read quiz state + submit answers but cannot write quiz metadata |
-| **correctIndex exposure** | Never returned to clients; only readable by Cloud Functions via Admin SDK |
-
----
-
-## ⚙️ Cloud Functions
-
-| Function | Trigger | Access |
-|---|---|---|
-| `submitAnswer` | HTTPS Callable | Any authenticated user |
-| `startQuestion` | HTTPS Callable | **Admin only** |
-| `endQuestion` | HTTPS Callable | **Admin only** |
-| `resetQuiz` | HTTPS Callable | **Admin only** |
-| `getLeaderboard` | HTTPS Callable | Public |
-| `setAdminClaim` | HTTPS Callable | Admin email only |
-| `checkAndLockQuestion` | HTTPS Callable | Any authenticated user |
-| `onPresenceDeleted` | RTDB trigger | Automatic |
-| `cleanupPresence` | Scheduled (every 10 min) | Automatic |
-
----
-
-## 📊 Firestore Data Model
-
-```
-quizState/current           ← singleton doc
-  status: "idle" | "active" | "ended" | "locked"
-  currentQuestion: number
-  questionStartTime: Timestamp
-  questionEndTime: Timestamp
-
-questions/{questionIndex}
-  text: string
-  options: string[]
-  correctIndex: number      ← NEVER sent to clients (Admin SDK only)
-  timeLimit: number
-
-teams/{teamId}
-  name: string
-  members: string[]
-  score: number             ← Cloud Functions only
-  createdAt: Timestamp
-
-responses/{teamId}_q{index}
-  teamId, questionIndex, selectedOption
-  isCorrect: boolean        ← Server calculated
-  pointsAwarded: number     ← Server calculated
-  submittedAt: Timestamp
-```
-
----
-
-## 🚀 Setup & Deployment
-
-### 1. Prerequisites
+## 2️⃣ Install Firebase CLI
 
 ```bash
 npm install -g firebase-tools
+```
+
+## 3️⃣ Login to Firebase
+
+```bash
 firebase login
 ```
 
-### 2. Update Admin Email
-
-In `functions/index.js`, update line 30:
-```js
-const ADMIN_EMAIL = "your-admin@email.com";
-```
-
-Also update in `firestore.rules`, line 35.
-
-### 3. Install Function Dependencies
+## 4️⃣ Initialize Firebase (First Time Only)
 
 ```bash
-cd functions
-npm install
+firebase init
 ```
 
-### 4. Run Tests
+Select:
+- Firestore
+- Functions
+- Hosting
 
-```bash
-npm test
-```
-
-### 5. Local Testing with Emulator
+## 5️⃣ Run Locally
 
 ```bash
 firebase emulators:start
-# Open http://localhost:4000 for Emulator UI
 ```
 
-Load seed data in Emulator UI:
-- Create `quizState/current` doc with `status: "idle"`
-- Create test questions in `questions/` collection (include `correctIndex`)
-- Create test teams in `teams/` collection
-
-### 6. Deploy to Firebase
+## 6️⃣ Deploy to Production
 
 ```bash
 firebase deploy
-# OR deploy specific parts:
-firebase deploy --only firestore:rules
-firebase deploy --only database
-firebase deploy --only functions
 ```
-
----
-
-## 🧩 Role-Based Access
-
-| Role | What they can do |
-|---|---|
-| **Admin** (approved email) | Start/End/Reset quiz, manage questions, view all responses |
-| **Authenticated User** | Register team, submit answers, view leaderboard |
-| **Anonymous User** | View quiz state, view leaderboard, submit answers (as anonymous participant) |
-
-> Admin identity is verified by matching `request.auth.token.email` to the `ADMIN_EMAIL` constant on the **server side** in every Cloud Function. Additionally, a custom claim `admin: true` can be set via `setAdminClaim`.
-
----
-
-## 📡 Scoring Formula
-
-```
-pointsAwarded = POINTS_PER_CORRECT + floor(TIME_BONUS_MAX × (1 - elapsed/total))
-             = 10 + floor(5 × timeRemainingFraction)
-
-Answer instantly → 10 + 5 = 15 pts
-Answer at 50%   → 10 + 2 = 12 pts
-Answer at 99%   → 10 + 0 = 10 pts
-Wrong answer    → 0 pts
-```
-
----
-
-## 🤝 Integration with Other Branches
-
-- **`features/admin`** calls `startQuestion`, `endQuestion`, `resetQuiz` via Firebase SDK
-- **`features/user`** calls `submitAnswer`, `getLeaderboard`, `checkAndLockQuestion`
-- Both branches need to use the same Firebase project (configured in `.firebaserc`)
