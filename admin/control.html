@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heisenbyte | Quiz Control Panel</title>
+    <meta name="description" content="Heisenbyte Quiz – Live Admin Control Panel" />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/admin.css" />
+
+    <style>
+        /* Glitch effect on ENDED status */
+        @keyframes glitch {
+
+            0%,
+            95%,
+            100% {
+                clip-path: none;
+                transform: none;
+            }
+
+            96% {
+                clip-path: inset(30% 0 40% 0);
+                transform: translate(-3px, 2px);
+            }
+
+            97% {
+                clip-path: inset(60% 0 10% 0);
+                transform: translate(3px, -2px);
+            }
+
+            98% {
+                clip-path: inset(10% 0 70% 0);
+                transform: translate(-2px, 1px);
+            }
+
+            99% {
+                clip-path: inset(0);
+                transform: none;
+            }
+        }
+
+        .status-glitch {
+            animation: glitch 4s infinite;
+        }
+
+        /* Live indicator pulse on header */
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(0, 255, 65, 0.08);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            letter-spacing: 1.5px;
+            color: var(--green);
+        }
+
+        /* Sidebar section titles */
+        .sidebar .info-key {
+            font-size: 0.75rem;
+        }
+
+        .sidebar .info-val {
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        /* Ended overlay on question card */
+        .ended-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-title);
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: var(--danger);
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px var(--danger-glow);
+            border-radius: 10px;
+            display: none;
+        }
+
+        .ended-overlay.show {
+            display: flex;
+        }
+
+        /* Tooltip on disabled buttons */
+        [data-tip] {
+            position: relative;
+        }
+
+        [data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 50;
+            letter-spacing: 0.5px;
+        }
+
+        /* Hide-answer blur effect */
+        .option-item.hidden-answer .option-text {
+            filter: blur(5px);
+            user-select: none;
+        }
+
+        .option-item.hidden-answer .option-key {
+            opacity: 0.3;
+        }
+
+        /* Question loading placeholder */
+        .q-placeholder {
+            height: 16px;
+            background: rgba(0, 255, 65, 0.06);
+            border-radius: 4px;
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+
+            0%,
+            100% {
+                opacity: 0.4;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
+
+        /* Sidebar QSB dot color variants */
+        .qsb-dot-amber {
+            background: var(--warning);
+            box-shadow: 0 0 6px var(--warning);
+        }
+
+        .qsb-dot-red {
+            background: var(--danger);
+            box-shadow: 0 0 6px var(--danger);
+        }
+
+        .qsb-dot- {
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+            animation: blink 1.4s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Background -->
+    <div class="bg-grid"></div>
+    <div class="bg-scanline"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Page Wrap -->
+    <div class="page-wrap">
+
+        <!-- ═══ HEADER ═══ -->
+        <header class="admin-header">
+            <div class="logo-wrap">
+                <div class="logo-icon" aria-hidden="true">⚗️</div>
+                <span class="logo-text">HEIS<span>EN</span>BYTE</span>
+            </div>
+
+            <div class="live-pill">
+                <div class="status-dot" id="status-dot"
+                    style="background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 1.4s infinite;">
+                </div>
+                <span id="status-text">LOADING...</span>
+            </div>
+
+            <div class="header-right">
+                <span class="admin-badge">CONTROL PANEL</span>
+                <button class="btn btn-logout" id="logout-btn" title="Logout">⏻ LOGOUT</button>
+            </div>
+        </header>
+
+        <!-- ═══ MAIN LAYOUT ═══ -->
+        <div class="control-layout">
+
+            <!-- ─── SIDEBAR ─── -->
+            <aside class="sidebar">
+
+                <!-- Quiz Info -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Quiz Info</div>
+
+                    <div class="quiz-state-badge">
+                        <div class="qsb-dot qsb-dot-amber" id="qsb-dot"></div>
+                        <!-- Reuse status-text from header -->
+                        <span class="qsb-label" id="sb-status-text">NOT STARTED</span>
+                    </div>
+
+                    <div class="info-row">
+                        <span class="info-key">Question</span>
+                        <span class="info-val"><span id="q-num">1</span> / <span id="q-total">?</span></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-key">Participants</span>
+                        <span class="info-val" id="sidebar-participants">0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-key">Timer</span>
+                        <span class="info-val">15 SEC</span>
+                    </div>
+                </div>
+
+                <hr style="border-color:var(--border);margin:4px 0;" />
+
+                <!-- Leaderboard (sidebar top-5) -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Top Participants</div>
+                    <div class="participant-list" id="sidebar-lb">
+                        <div class="text-dim mono" style="font-size:0.72rem;padding:6px 0;">Waiting for scores...</div>
+                    </div>
+                </div>
+
+            </aside>
+
+            <!-- ─── MAIN CONTENT ─── -->
+            <main class="control-main">
+
+                <!-- Timer bar row -->
+                <div style="display:flex;align-items:center;gap:16px;padding: 0 4px;">
+                    <span
+                        style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;white-space:nowrap;">TIMER</span>
+                    <div class="timer-bar-wrap" style="flex:1;">
+                        <div class="timer-bar" id="timer-bar" style="width:100%;"></div>
+                    </div>
+                    <div class="timer-display" id="timer-display">15</div>
+                    <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);">SEC</span>
+                </div>
+
+                <!-- Current Question Card -->
+                <div class="question-card" id="question-card">
+                    <div class="ended-overlay" id="ended-overlay">QUIZ ENDED</div>
+
+                    <div class="qcard-header">
+                        <span class="qcard-num">QUESTION <span id="qcard-num">1</span></span>
+                        <span
+                            style="font-family:var(--font-mono);font-size:0.7rem;color:var(--green-dim);letter-spacing:1.5px;"
+                            id="qcard-status-tag">ANSWER HIDDEN</span>
+                    </div>
+
+                    <p class="question-text" id="question-text">
+                        Loading questions from Firestore...
+                    </p>
+
+                    <div class="options-grid" id="options-grid">
+                        <div class="option-item" id="opt-0">
+                            <span class="option-key">A</span>
+                            <span class="option-text">—</span>
+                        </div>
+                        <div class="option-item" id="opt-1">
+                            <span class="option-key">B</span>
+                            <span class="option-text">—</span>
+                        </div>
+                        <div class="option-item" id="opt-2">
+                            <span class="option-key">C</span>
+                            <span class="option-text">—</span>
+                        </div>
+                        <div class="option-item" id="opt-3">
+                            <span class="option-key">D</span>
+                            <span class="option-text">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="control-buttons" id="control-buttons">
+
+                    <!-- ACTIVATE QUESTION -->
+                    <button class="ctrl-btn green" id="btn-activate"
+                        data-tip="Push question to participants & start timer" disabled data-disabled="true">
+                        <span class="btn-icon">▶</span>
+                        <span class="btn-label">ACTIVATE QUESTION</span>
+                    </button>
+
+                    <!-- REVEAL ANSWER -->
+                    <button class="ctrl-btn amber" id="btn-reveal" data-tip="Show correct answer, lock submissions"
+                        disabled data-disabled="true">
+                        <span class="btn-icon">💡</span>
+                        <span class="btn-label">REVEAL ANSWER</span>
+                    </button>
+
+                    <!-- NEXT QUESTION -->
+                    <button class="ctrl-btn green" id="btn-next" data-tip="Advance to next question" disabled
+                        data-disabled="true">
+                        <span class="btn-icon">⏭</span>
+                        <span class="btn-label">NEXT QUESTION</span>
+                    </button>
+
+                    <!-- SHOW LEADERBOARD -->
+                    <button class="ctrl-btn blue" id="btn-leaderboard" data-tip="Toggle real-time leaderboard" disabled
+                        data-disabled="true">
+                        <span class="btn-icon">🏆</span>
+                        <span class="btn-label">SHOW LEADERBOARD</span>
+                    </button>
+
+                    <!-- END QUIZ -->
+                    <button class="ctrl-btn red" id="btn-end" data-tip="End quiz and reveal final leaderboard" disabled
+                        data-disabled="true">
+                        <span class="btn-icon">🛑</span>
+                        <span class="btn-label">END QUIZ</span>
+                    </button>
+
+                </div>
+
+                <!-- Leaderboard Panel (hidden by default) -->
+                <div class="leaderboard-panel hidden" id="lb-panel">
+                    <div class="lb-title">🏆 LIVE LEADERBOARD</div>
+                    <div class="lb-list" id="lb-list">
+                        <div class="text-dim mono" style="text-align:center;padding:20px;font-size:0.8rem;">
+                            Loading scores...
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="ctrl-footer">
+            <span>HEISENBYTE QUIZ SYSTEM · ADMIN PANEL</span>
+            <span class="footer-version">v1.0.0 · REAL-TIME</span>
+        </footer>
+
+    </div>
+
+    <!-- ═══ CONFIRMATION MODAL ═══ -->
+    <div class="modal-overlay hidden" id="confirm-modal" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <div class="modal-icon" id="confirm-icon">🛑</div>
+            <h2 class="modal-title text-danger" id="confirm-title">END QUIZ</h2>
+            <p class="modal-desc" id="confirm-desc">
+                This will lock all submissions and display the final leaderboard.<br />
+                This action <strong>cannot be undone</strong>.
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="confirm-no">✕ CANCEL</button>
+                <button class="btn btn-danger" id="confirm-yes">CONFIRM</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/firebase-config.js"></script>
+
+    <!-- Override to also sync sidebar status text -->
+    <script>
+        // Patch updateStatusBadge to also update sidebar
+        window._sbStatusText = document.getElementById("sb-status-text");
+        window._qcardNum = document.getElementById("qcard-num");
+        window._qcardTag = document.getElementById("qcard-status-tag");
+        window._endedOverlay = document.getElementById("ended-overlay");
+    </script>
+
+    <script src="js/control.js"></script>
+
+    <!-- Sync sidebar status + qcard number from control.js events -->
+    <script>
+        // Extend original updateStatusBadge / renderQuestion
+        const _origUSB = window.updateStatusBadge;
+
+        // Poll qNum and status into additional elements every second for simplicity
+        setInterval(() => {
+            const statusEl = document.getElementById("status-text");
+            const sbEl = document.getElementById("sb-status-text");
+            const qNumEl = document.getElementById("q-num");
+            const qcardEl = document.getElementById("qcard-num");
+            const tagEl = document.getElementById("qcard-status-tag");
+            const dotEl = document.getElementById("qsb-dot");
+            const hDotEl = document.getElementById("status-dot");
+
+            if (sbEl && statusEl) sbEl.textContent = statusEl.textContent;
+            if (qcardEl && qNumEl) qcardEl.textContent = qNumEl.textContent;
+
+            // Sync qsb-dot color from header status-dot
+            if (dotEl && hDotEl) {
+                dotEl.style.background = hDotEl.style.background;
+                dotEl.style.boxShadow = hDotEl.style.boxShadow;
+            }
+
+            // Tag line - shows what's hidden/revealed
+            const st = statusEl ? statusEl.textContent : "";
+            if (tagEl) {
+                if (st.includes("REVEALED") || st.includes("ENDED")) {
+                    tagEl.textContent = "✓ ANSWER VISIBLE";
+                    tagEl.style.color = "var(--green)";
+                } else if (st.includes("Q ACTIVE")) {
+                    tagEl.textContent = "⏱ ANSWERING IN PROGRESS";
+                    tagEl.style.color = "var(--warning)";
+                } else {
+                    tagEl.textContent = "ANSWER HIDDEN";
+                    tagEl.style.color = "var(--text-dim)";
+                }
+            }
+
+            // Show ended overlay
+            const overlay = document.getElementById("ended-overlay");
+            if (overlay) {
+                if (st.includes("ENDED")) overlay.classList.add("show");
+                else overlay.classList.remove("show");
+            }
+        }, 1000);
+    </script>
+
+</body>
+
+</html>
