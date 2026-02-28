@@ -1,0 +1,364 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+    --bg-dark: #0a0a0a;
+    --bg-panel: rgba(15, 15, 15, 0.9);
+    --toxic-green: #39ff14;
+    --toxic-green-glow: rgba(57, 255, 20, 0.4);
+    --meth-blue: #00d4ff;
+    --danger-red: #ff3e3e;
+    --text-main: #e0e0e0;
+    --text-dim: #888;
+    --border-color: #333;
+    --transition-speed: 0.4s;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Kanit', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Cinematic Laboratory Background */
+#background-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: radial-gradient(circle at center, #111 0%, #000 100%);
+}
+
+.lab-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background:
+        linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+        repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(57, 255, 20, 0.05) 2px);
+    pointer-events: none;
+}
+
+#app {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    padding: 20px;
+}
+
+/* Screen Transitions */
+.screen {
+    width: 100%;
+    max-width: 600px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(57, 255, 20, 0.05);
+    display: none;
+    flex-direction: column;
+    gap: 24px;
+    transform: scale(0.95) translateY(20px);
+    opacity: 0;
+    transition: transform var(--transition-speed) cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        opacity var(--transition-speed) ease-out;
+}
+
+.screen.active {
+    display: flex;
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+/* Typography */
+h1 {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--toxic-green);
+    text-transform: uppercase;
+    font-size: 2.8rem;
+    text-align: center;
+    letter-spacing: 6px;
+    text-shadow: 0 0 15px var(--toxic-green-glow);
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+}
+
+/* Form Elements */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.input-label {
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
+    color: var(--toxic-green);
+    font-weight: bold;
+}
+
+input[type="text"] {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 16px;
+    color: white;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    transition: all 0.3s;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--toxic-green);
+    box-shadow: 0 0 15px var(--toxic-green-glow);
+    background: rgba(57, 255, 20, 0.05);
+}
+
+button {
+    background: transparent;
+    border: 1px solid var(--toxic-green);
+    color: var(--toxic-green);
+    padding: 18px;
+    border-radius: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+button:hover {
+    background: var(--toxic-green);
+    color: black;
+    box-shadow: 0 0 30px var(--toxic-green-glow);
+    transform: translateY(-2px);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: #555;
+    color: #555;
+}
+
+/* Quiz UI */
+.quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-box {
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.stat-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.5rem;
+    color: var(--meth-blue);
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+}
+
+.timer-wrap {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+    margin: 20px 0;
+    overflow: hidden;
+}
+
+.timer-bar {
+    height: 100%;
+    width: 100%;
+    background: var(--toxic-green);
+    box-shadow: 0 0 10px var(--toxic-green-glow);
+    transition: width 0.1s linear, background-color 0.3s;
+}
+
+.timer-bar.critical {
+    background: var(--danger-red);
+    box-shadow: 0 0 15px var(--danger-red);
+    animation: flicker 0.2s infinite;
+}
+
+@keyframes flicker {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.question-area {
+    margin: 10px 0 30px 0;
+}
+
+.question-text {
+    font-size: 1.6rem;
+    line-height: 1.3;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.option-node {
+    justify-content: flex-start;
+    text-align: left;
+    padding: 15px 25px;
+    font-size: 1rem;
+    border-color: #444;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.option-node.selected {
+    border-color: var(--meth-blue);
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.option-node.correct {
+    background: var(--toxic-green) !important;
+    color: black !important;
+    border-color: var(--toxic-green) !important;
+}
+
+.option-node.wrong {
+    background: var(--danger-red) !important;
+    color: white !important;
+    border-color: var(--danger-red) !important;
+}
+
+/* Lobby */
+.lobby-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.player-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    border-left: 3px solid var(--toxic-green);
+}
+
+.waiting-msg {
+    text-align: center;
+    color: var(--toxic-green);
+    font-style: italic;
+    margin-top: 20px;
+    animation: glow-pulse 2s infinite;
+}
+
+@keyframes glow-pulse {
+    0% {
+        text-shadow: 0 0 5px var(--toxic-green-glow);
+        opacity: 0.7;
+    }
+
+    50% {
+        text-shadow: 0 0 15px var(--toxic-green);
+        opacity: 1;
+    }
+
+    100% {
+        text-shadow: 0 0 5px var(--toxic-green-glow);
+        opacity: 0.7;
+    }
+}
+
+/* Results */
+.summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.summary-card {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 25px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.large-value {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--toxic-green);
+    font-family: 'Share Tech Mono', monospace;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--toxic-green);
+    border-radius: 2px;
+}
