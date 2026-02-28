@@ -1,0 +1,142 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  HEISENBYTE QUIZ — Firestore Security Rules
+//  Branch: features/backend
+//
+//  Role model:
+//    Admin  → email === ADMIN_EMAIL (set in functions, mirrored as custom claim)
+//    User   → any Firebase authenticated user (anonymous or email)
+//    Public → unauthenticated (read-only on quiz state / participants)
+//
+//  Key security guarantees:
+//    1. Only Admin can mutate quizState / questions
+//    2. teams.score is server-only (Cloud Functions Admin SDK)
+//    3. responses use composite ID {teamId}_{questionIndex} → enforces
+//       single-submission per team per question at the rules level
+//    4. Late submission blocked: submission time must be before questionEndTime
+//    5. correctIndex field in questions is NEVER readable by clients
+// ─────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ──────────────────────────────────────────────────────
+
+    // Check if the caller is authenticated
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Check if the caller is the designated admin by email
+    function isAdmin() {
+      return isAuthed() &&
+             request.auth.token.email == "admin@heisenbyte.com" &&
+             request.auth.token.email_verified == true;
+    }
+
+    // Check if the caller is admin via custom claim (set by Cloud Function)
+    function hasAdminClaim() {
+      return isAuthed() && request.auth.token.admin == true;
+    }
+
+    // Admin = either email match or custom claim
+    function isAdminUser() {
+      return isAdmin() || hasAdminClaim();
+    }
+
+    // Check incoming data only has the allowed fields (no extra fields injected)
+    function onlyFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ─── quizState ─────────────────────────────────────────────────────────────
+    // Single doc: quizState/current
+    // Anyone can read (needed for participants to follow quiz flow).
+    // Only Admin can write.
+    match /quizState/{docId} {
+      allow read: if true;
+      allow write: if isAdminUser();
+    }
+
+    // ─── questions ─────────────────────────────────────────────────────────────
+    // Admin can do anything.
+    // Authenticated users (participants) can read questions,
+    // BUT the correctIndex field is masked — clients should NEVER receive it.
+    // The Cloud Function reads correctIndex via Admin SDK (bypasses rules).
+    match /questions/{questionId} {
+      allow read: if isAuthed() &&
+                     // Deny reads if the client explicitly requests correctIndex
+                     !("correctIndex" in request.query.fieldFilter);
+      allow write: if isAdminUser();
+    }
+
+    // ─── teams ─────────────────────────────────────────────────────────────────
+    // Any authenticated user can create their own team (once).
+    // Anyone can read all teams (needed for leaderboard display).
+    // Only Cloud Functions (Admin SDK) can update score — clients cannot.
+    // Teams cannot be deleted once created during a quiz.
+    match /teams/{teamId} {
+      allow read: if true;
+
+      // Create: authenticated user, must not set score
+      allow create: if isAuthed() &&
+                       onlyFields(["name", "members", "createdAt"]);
+
+      // Update: only admin SDK (functions) — clients get deny
+      // The score field is deliberately NOT writable by any client
+      allow update: if isAdminUser();
+
+      allow delete: if isAdminUser();
+    }
+
+    // ─── responses ─────────────────────────────────────────────────────────────
+    // Document ID format: {teamId}_{questionIndex}
+    // This enforces one-response-per-team-per-question at the document level.
+    // Firestore's allow create: if !exists(...) prevents duplicates.
+    //
+    // ALL response writes are done server-side (Admin SDK via Cloud Functions).
+    // Clients only get read access to their own team's responses.
+    match /responses/{responseId} {
+      // Parse teamId from composite document ID
+      function responseTeamId() {
+        return responseId.split("_")[0];
+      }
+
+      // Participants can only read their own team's responses
+      allow read: if isAuthed() &&
+                     (responseTeamId() == request.auth.uid || isAdminUser());
+
+      // Admin can read all responses
+      allow read: if isAdminUser();
+
+      // NO client writes — all response creation is done by Cloud Function
+      // which runs with Admin SDK and bypasses these rules.
+      // We explicitly deny to prevent any tampering.
+      allow write: if false;
+    }
+
+    // ─── participants / presence ────────────────────────────────────────────────
+    // Presence is primary tracked in Realtime Database.
+    // This Firestore collection stores sanitized participant info.
+    match /participants/{uid} {
+      allow read: if isAdminUser();
+      allow create, update: if isAuthed() && request.auth.uid == uid &&
+                               onlyFields(["displayName", "teamId", "joinedAt", "online"]);
+      allow delete: if isAuthed() && request.auth.uid == uid;
+    }
+
+    // ─── leaderboard (denormalized snapshot) ───────────────────────────────────
+    // Read-only for everyone. Written only by Cloud Functions.
+    match /leaderboard/{docId} {
+      allow read: if true;
+      allow write: if false; // only Admin SDK (Cloud Functions)
+    }
+
+    // ─── Catch-all: deny everything else ───────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

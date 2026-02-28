@@ -1,0 +1,53 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "teams",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "score",
+                    "order": "DESCENDING"
+                },
+                {
+                    "fieldPath": "lastAnsweredAt",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "responses",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "teamId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "questionIndex",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "responses",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "questionIndex",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "submittedAt",
+                    "order": "ASCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": [
+        {
+            "collectionGroup": "questions",
+            "fieldPath": "correctIndex",
+            "indexes": []
+        }
+    ]
+}
