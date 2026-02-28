@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heisenbyte | Seed Questions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&family=Rajdhani:wght@600;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="css/admin.css" />
+    <style>
+        body {
+            padding: 32px;
+        }
+
+        .seed-wrap {
+            max-width: 700px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .seed-title {
+            font-family: var(--font-title);
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: var(--green);
+            text-shadow: 0 0 12px var(--green-glow);
+            letter-spacing: 3px;
+        }
+
+        .log-area {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 2;
+        }
+
+        .log-area .ok {
+            color: var(--green);
+        }
+
+        .log-area .err {
+            color: var(--danger);
+        }
+
+        .log-area .inf {
+            color: var(--warning);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-scanline"></div>
+
+    <div class="page-wrap">
+        <header class="admin-header">
+            <div class="logo-wrap">
+                <div class="logo-icon">⚗️</div>
+                <span class="logo-text">HEIS<span>EN</span>BYTE</span>
+            </div>
+            <div class="header-right">
+                <span class="admin-badge">DB SEEDER</span>
+                <a class="btn btn-outline" href="index.html" style="padding:7px 14px;font-size:0.78rem;">← BACK</a>
+            </div>
+        </header>
+
+        <div style="flex:1;padding:32px;">
+            <div class="seed-wrap">
+                <div class="seed-title">🌱 FIRESTORE SEEDER</div>
+                <p style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-dim);line-height:1.8;">
+                    This tool seeds the Firestore database with sample technical questions and resets the quiz state.
+                    Run this tool <strong style="color:var(--green)">once before each event</strong>.
+                </p>
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" id="seed-btn">🌱 SEED QUESTIONS</button>
+                    <button class="btn btn-warning" id="reset-btn">🔄 RESET QUIZ STATE</button>
+                    <button class="btn btn-danger" id="clear-btn">🗑 CLEAR ALL DATA</button>
+                </div>
+
+                <div class="log-area" id="log"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+
+    <script>
+        // ============================================================
+        // SAMPLE QUESTIONS — Replace/expand for your event
+        // ============================================================
+        const SAMPLE_QUESTIONS = [
+            {
+                order: 0,
+                questionText: "Which data structure uses LIFO (Last In First Out) principle?",
+                options: ["Queue", "Stack", "Linked List", "Tree"],
+                correctAnswer: "B",
+                basePoints: 100
+            },
+            {
+                order: 1,
+                questionText: "What is the time complexity of binary search?",
+                options: ["O(n)", "O(n²)", "O(log n)", "O(1)"],
+                correctAnswer: "C",
+                basePoints: 100
+            },
+            {
+                order: 2,
+                questionText: "Which of the following is NOT a JavaScript data type?",
+                options: ["Undefined", "Boolean", "Float", "Symbol"],
+                correctAnswer: "C",
+                basePoints: 100
+            },
+            {
+                order: 3,
+                questionText: "What does HTTP stand for?",
+                options: [
+                    "HyperText Transfer Protocol",
+                    "HyperText Transmission Protocol",
+                    "High Transfer Test Protocol",
+                    "Host Transfer Text Protocol"
+                ],
+                correctAnswer: "A",
+                basePoints: 100
+            },
+            {
+                order: 4,
+                questionText: "Which sorting algorithm has the best average-case complexity?",
+                options: ["Bubble Sort", "Insertion Sort", "Merge Sort", "Selection Sort"],
+                correctAnswer: "C",
+                basePoints: 100
+            },
+            {
+                order: 5,
+                questionText: "In Python, what is the output of: type([])?",
+                options: ["<class 'array'>", "<class 'list'>", "<class 'tuple'>", "<class 'dict'>"],
+                correctAnswer: "B",
+                basePoints: 100
+            },
+            {
+                order: 6,
+                questionText: "What does SQL stand for?",
+                options: [
+                    "Structured Query Language",
+                    "Simple Query Language",
+                    "System Query Logic",
+                    "Stored Query Lookup"
+                ],
+                correctAnswer: "A",
+                basePoints: 100
+            },
+            {
+                order: 7,
+                questionText: "Which OSI layer handles routing of packets?",
+                options: ["Data Link Layer", "Transport Layer", "Network Layer", "Session Layer"],
+                correctAnswer: "C",
+                basePoints: 100
+            },
+            {
+                order: 8,
+                questionText: "What is the full form of CSS?",
+                options: [
+                    "Computer Style Sheets",
+                    "Cascading Style Sheets",
+                    "Creative Style Sheets",
+                    "Coded Style Syntax"
+                ],
+                correctAnswer: "B",
+                basePoints: 100
+            },
+            {
+                order: 9,
+                questionText: "Which keyword is used to declare a constant in JavaScript?",
+                options: ["var", "let", "final", "const"],
+                correctAnswer: "D",
+                basePoints: 100
+            }
+        ];
+
+        const logEl = document.getElementById("log");
+
+        function log(msg, type = "") {
+            const div = document.createElement("div");
+            div.className = type;
+            div.textContent = msg;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // ── SEED ──
+        document.getElementById("seed-btn").addEventListener("click", async () => {
+            log("⚡ Starting question seed...", "inf");
+            let count = 0;
+            try {
+                for (const q of SAMPLE_QUESTIONS) {
+                    await HB.questionsRef.add(q);
+                    count++;
+                    log(`✓ Added: Q${count} — ${q.questionText.substring(0, 50)}...`, "ok");
+                }
+                log(`\n✅ ${count} questions seeded successfully!`, "ok");
+                log(`📋 Quiz is ready to run.`, "ok");
+            } catch (e) {
+                log(`✗ Error: ${e.message}`, "err");
+                console.error(e);
+            }
+        });
+
+        // ── RESET STATE ──
+        document.getElementById("reset-btn").addEventListener("click", async () => {
+            if (!confirm("Reset quiz state to NOT_STARTED?")) return;
+            log("🔄 Resetting quiz state...", "inf");
+            try {
+                await HB.quizStateRef.set({
+                    status: "NOT_STARTED",
+                    currentQuestionIndex: 0,
+                    questionTotal: SAMPLE_QUESTIONS.length,
+                    startedAt: null,
+                    endedAt: null,
+                    timerStart: null,
+                    timerDuration: 15,
+                    revealedAt: null
+                });
+                log("✅ Quiz state reset to NOT_STARTED", "ok");
+            } catch (e) {
+                log(`✗ Error: ${e.message}`, "err");
+            }
+        });
+
+        // ── CLEAR ALL ──
+        document.getElementById("clear-btn").addEventListener("click", async () => {
+            if (!confirm("WARNING: This will delete ALL questions, teams, and responses from Firestore. Continue?")) return;
+            log("🗑 Clearing all Firestore data...", "inf");
+            try {
+                const collections = ["questions", "teams", "responses"];
+                for (const col of collections) {
+                    const snap = await HB.db.collection(col).get();
+                    const batch = HB.db.batch();
+                    snap.docs.forEach(d => batch.delete(d.ref));
+                    await batch.commit();
+                    log(`✓ Cleared ${snap.size} docs from '${col}'`, "ok");
+                }
+                log("✅ All data cleared.", "ok");
+            } catch (e) {
+                log(`✗ Error: ${e.message}`, "err");
+            }
+        });
+    </script>
+</body>
+
+</html>
