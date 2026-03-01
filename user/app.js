@@ -3,9 +3,11 @@
 // document, listens to quiz state and submits answers via cloud function.
 
 // --- Firebase references (initialized by shared firebase-config.js) ---
-const auth = firebase.auth();
-const db = firebase.firestore();
-// use same region as backend functions
+// NOTE: `auth` and `db` are already declared as global `const` in
+// firebase-config.js. Re-declaring them here with `const` would throw
+// "Identifier has already been declared" and kill the entire script.
+// We simply reference them directly; they are available globally.
+// `functions` is not declared in firebase-config.js so we create it here.
 const functions = firebase.app().functions('asia-south1');
 
 // --- Local state ---
@@ -17,6 +19,8 @@ let currentQuestion = null;
 let timerInterval = null;
 let timeRemaining = 0;
 let hasSubmitted = false;
+let selectedAnswer = null;  // tracks the user's selected answer index
+let scorePopupShown = false;  // prevent duplicate popups
 
 // --- DOM elements ---
 const screens = {
@@ -99,6 +103,35 @@ function init() {
     // run listeners but guard for errors so UI still responds to clicks
     try { listenQuizState(); } catch (e) { console.error('listenQuizState failed', e); }
     try { listenTeamsJoined(); } catch (e) { console.error('listenTeamsJoined failed', e); }
+    try { listenTeamDeleted(); } catch (e) { console.error('listenTeamDeleted failed', e); }
+    try { listenUserLeaderboard(); } catch (e) { console.error('listenUserLeaderboard failed', e); }
+}
+
+// --- Detect quiz restart (team deleted by admin) ---
+function listenTeamDeleted() {
+    // Only listen if we have a teamId from localStorage
+    const storedTeamId = localStorage.getItem('teamId');
+    if (!storedTeamId) return;
+
+    db.collection('teams').doc(storedTeamId).onSnapshot(snap => {
+        if (!snap.exists && teamId) {
+            // Team was deleted (admin restarted quiz)
+            console.log('⚠ Team deleted — quiz was restarted by admin');
+            localStorage.removeItem('teamId');
+            localStorage.removeItem('teamName');
+            localStorage.removeItem('leadName');
+            teamId = null;
+            teamName = '';
+            leadName = '';
+            switchScreen('login');
+            const errEl = document.getElementById('login-error');
+            if (errEl) {
+                errEl.style.display = 'block';
+                errEl.textContent = 'Quiz was restarted by admin. Please rejoin.';
+                errEl.style.color = 'var(--meth-blue)';
+            }
+        }
+    });
 }
 
 // --- Login / team creation ---
@@ -184,7 +217,7 @@ function listenTeamsJoined() {
     db.collection('teams').onSnapshot(snap => {
         const lobbyList = document.getElementById('lobby-list');
         lobbyList.innerHTML = '';
-        
+
         snap.forEach(doc => {
             const data = doc.data();
             const badge = document.createElement('div');
@@ -193,7 +226,7 @@ function listenTeamsJoined() {
             badge.textContent = `${data.teamName.toUpperCase()} · ${data.members ? data.members[0] : 'N/A'}`;
             lobbyList.appendChild(badge);
         });
-        
+
         console.log('Teams in lobby:', snap.size);
     }, err => {
         console.error('Error listening to teams:', err);
@@ -204,53 +237,71 @@ function listenTeamsJoined() {
 function listenQuizState() {
     db.doc('quiz/metadata').onSnapshot(async snap => {
         // if the metadata document hasn't been created yet we'll treat
-        // that exactly the same as an "idle"/waiting state. this lets
-        // participants load the lobby immediately without waiting for
-        // an admin action, and avoids the UI being stuck on the login
-        // screen when the quiz is brand‑new.
+        // that exactly the same as an "idle"/waiting state.
         if (!snap.exists) {
             if (teamId) switchScreen('lobby');
             return;
         }
 
         const state = snap.data();
-        const { status, currentQuestion, questionStartTime, questionEndTime, totalQuestions, answerRevealed } = state;
+        // IMPORTANT: rename destructured currentQuestion to stateQuestionIdx
+        // to avoid shadowing the module-level `currentQuestion` variable
+        const stateQuestionIdx = state.currentQuestion;
+        const status = state.status;
+        const questionStartTime = state.questionStartTime;
+        const questionEndTime = state.questionEndTime;
+        const totalQuestions = state.totalQuestions;
+        const timeLimitSeconds = state.timeLimitSeconds || 15;
+        const answerRevealed = state.answerRevealed;
+
+        // Handle leaderboard visibility from admin toggle (runs for ALL statuses)
+        const lbOverlay = document.getElementById('user-leaderboard');
+        if (lbOverlay) {
+            if (state.showLeaderboard) {
+                lbOverlay.classList.remove('hidden');
+            } else {
+                lbOverlay.classList.add('hidden');
+            }
+        }
 
         // the admin panel uses a slightly different set of status strings
-        // (NOT_STARTED, LIVE, QUESTION_ACTIVE, etc.). we treat any of the
-        // "waiting/not‑started" values as a signal to show the lobby.
         const waitingStatuses = ['idle', 'waiting', 'NOT_STARTED'];
         if (waitingStatuses.includes(status)) {
             if (teamId) switchScreen('lobby');
-            return; // stay in lobby until quiz begins
+            return;
         }
 
-        // when the quiz actually goes live we switch into the question
-        // screen. again we accept both variants used by the admin module.
+        // when the quiz goes live we switch into the question screen
         const activeStatuses = ['active', 'LIVE', 'QUESTION_ACTIVE'];
         if (activeStatuses.includes(status)) {
-            if (currentQuestion !== currentQuestionIndex) {
-                currentQuestionIndex = currentQuestion;
+            if (stateQuestionIdx !== currentQuestionIndex || !currentQuestion) {
+                currentQuestionIndex = stateQuestionIdx;
                 currentQuestion = await fetchQuestion(currentQuestionIndex);
                 displayQuestion(currentQuestion);
                 hasSubmitted = false;
-                switchScreen('quiz');
+                selectedAnswer = null;
+                scorePopupShown = false;
             }
-            beginTimer(questionStartTime, questionEndTime);
+            switchScreen('quiz');
+            beginTimer(questionStartTime, questionEndTime, timeLimitSeconds);
             return;
         }
 
         if (status === 'ended') {
             endQuestion();
             if (answerRevealed && currentQuestion) revealCorrect(currentQuestion);
-            if (totalQuestions && currentQuestion >= totalQuestions - 1) {
+            if (totalQuestions && stateQuestionIdx >= totalQuestions - 1) {
                 showResults();
             }
             return;
         }
 
         if (status === 'revealed') {
-            revealCorrect(currentQuestion);
+            endQuestion();
+            if (currentQuestion) {
+                revealCorrect(currentQuestion);
+                showScorePopup(currentQuestion);
+            }
             return;
         }
     });
@@ -281,20 +332,22 @@ function displayQuestion(q) {
         const b = document.createElement('button');
         b.className = 'option-node';
         b.textContent = opt;
-        b.onclick = () => sendAnswer(i);
+        b.dataset.index = i;
+        b.onclick = () => sendAnswer(i, b);
         stack.appendChild(b);
     });
 }
 
-function beginTimer(startStamp, endStamp) {
+function beginTimer(startStamp, endStamp, timeLimitSec) {
     if (timerInterval) clearInterval(timerInterval);
+    const totalDuration = timeLimitSec || 15;
     const start = startStamp ? startStamp.toMillis() : Date.now();
-    const end = endStamp ? endStamp.toMillis() : start + 15000;
+    const end = endStamp ? endStamp.toMillis() : start + totalDuration * 1000;
     function tick() {
         const now = Date.now();
         timeRemaining = Math.max(0, (end - now) / 1000);
         document.getElementById('label-timer').textContent = timeRemaining.toFixed(1);
-        const pct = (timeRemaining / 15) * 100;
+        const pct = (timeRemaining / totalDuration) * 100;
         document.getElementById('timer-line').style.width = pct + '%';
         if (timeRemaining <= 0) clearInterval(timerInterval);
     }
@@ -306,33 +359,146 @@ function endQuestion() {
     if (timerInterval) clearInterval(timerInterval);
 }
 
-function sendAnswer(choice) {
+function sendAnswer(choice, clickedBtn) {
     if (hasSubmitted || !teamId) return;
     hasSubmitted = true;
-    const sms = firebase.functions().httpsCallable('submitAnswer');
-    sms({ teamId, questionIndex: currentQuestionIndex, selectedOption: choice })
-        .then(res => {
-            console.log('submitted', res.data);
-        })
-        .catch(err => {
-            console.error('submit error', err);
+    selectedAnswer = choice;  // Track what the user picked
+
+    // 1. Visual feedback: highlight the selected option and lock all
+    const allBtns = document.querySelectorAll('.option-node');
+    allBtns.forEach(b => {
+        b.disabled = true;  // Lock ALL buttons so user can't change answer
+    });
+
+    // Highlight the selected one
+    if (clickedBtn) {
+        clickedBtn.classList.add('selected');
+    }
+
+    // 2. Save the answer directly to Firestore (avoids CORS issues with emulator)
+    const answerKey = ['A', 'B', 'C', 'D'][choice] || choice;
+    db.collection('responses').add({
+        teamId: teamId,
+        teamName: teamName,
+        questionIndex: currentQuestionIndex,
+        selectedOption: choice,
+        selectedAnswer: answerKey,
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        console.log('✓ Answer submitted:', answerKey);
+
+        // Also update team score if answer is correct
+        if (currentQuestion && currentQuestion.correctIndex === choice) {
+            // Correct answer: award 10 points
+            db.collection('teams').doc(teamId).update({
+                score: firebase.firestore.FieldValue.increment(10)
+            }).then(() => console.log('✓ Score updated +10'));
+        }
+    }).catch(err => {
+        console.error('Submit error:', err);
+        // If submission fails, allow retry
+        hasSubmitted = false;
+        allBtns.forEach(b => {
+            b.disabled = false;
         });
+        if (clickedBtn) clickedBtn.classList.remove('selected');
+    });
 }
 
 function revealCorrect(q) {
     const btns = document.querySelectorAll('.option-node');
     btns.forEach((b, i) => {
         b.disabled = true;
-        if (i === q.correctIndex) b.classList.add('correct');
+        if (i === q.correctIndex) {
+            b.classList.add('correct');
+        } else if (i === selectedAnswer && i !== q.correctIndex) {
+            // Mark the user's wrong answer in red
+            b.classList.add('wrong');
+        }
+    });
+}
+
+// --- Score popup when answer is revealed ---
+function showScorePopup(q) {
+    if (scorePopupShown || selectedAnswer === null) return;
+    scorePopupShown = true;
+
+    const popup = document.getElementById('score-popup');
+    const popupValue = document.getElementById('score-popup-value');
+    const popupLabel = document.getElementById('score-popup-label');
+    if (!popup || !popupValue || !popupLabel) return;
+
+    const isCorrect = q && q.correctIndex === selectedAnswer;
+
+    if (isCorrect) {
+        popupValue.textContent = '+10';
+        popupValue.className = 'score-popup-value';
+        popupLabel.textContent = 'CORRECT!';
+        popupLabel.style.color = '#39ff14';
+    } else {
+        popupValue.textContent = '0';
+        popupValue.className = 'score-popup-value wrong';
+        popupLabel.textContent = 'WRONG';
+        popupLabel.style.color = '#ff3e3e';
+    }
+
+    popup.classList.remove('hidden');
+
+    // Also update the BATCH YIELD display
+    if (isCorrect) {
+        const scoreEl = document.getElementById('label-score');
+        if (scoreEl) scoreEl.textContent = parseInt(scoreEl.textContent || '0') + 10;
+    }
+
+    // Auto-hide after 2.5 seconds
+    setTimeout(() => {
+        popup.classList.add('hidden');
+    }, 2500);
+}
+
+// --- User leaderboard listener ---
+function listenUserLeaderboard() {
+    db.collection('teams').orderBy('score', 'desc').onSnapshot(snap => {
+        const lbList = document.getElementById('user-lb-list');
+        if (!lbList) return;
+        lbList.innerHTML = '';
+
+        if (snap.empty) {
+            lbList.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-family:monospace;">No teams yet</div>';
+            return;
+        }
+
+        snap.docs.forEach((doc, i) => {
+            const data = doc.data();
+            const rank = i + 1;
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+            const rankCls = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+            const isMe = doc.id === teamId;
+
+            const row = document.createElement('div');
+            row.className = 'user-lb-row' + (isMe ? ' my-team' : '');
+            row.innerHTML = `
+                <span class="user-lb-rank ${rankCls}">${medal}</span>
+                <span class="user-lb-name">${data.teamName || 'Unknown'}${isMe ? ' (YOU)' : ''}</span>
+                <span class="user-lb-score">${data.score || 0} pts</span>
+            `;
+            lbList.appendChild(row);
+        });
     });
 }
 
 function showResults() {
     switchScreen('results');
-    // optionally, fetch leaderboard
-    functions.httpsCallable('getLeaderboard')().then(r => {
-        console.log('leaderboard', r.data.leaderboard);
-    });
+    // Fetch team score for final display
+    if (teamId) {
+        db.collection('teams').doc(teamId).get().then(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                const scoreEl = document.getElementById('final-score');
+                if (scoreEl) scoreEl.textContent = data.score || 0;
+            }
+        });
+    }
 }
 
 function drawBackground() {
@@ -346,9 +512,9 @@ function drawBackground() {
         w = canvas.width = window.innerWidth;
         h = canvas.height = window.innerHeight;
     }
-    class Particle { constructor(){ this.reset(); } reset(){ this.x=Math.random()*w; this.y=h+10; this.s=Math.random()*2+1; this.v=Math.random()*0.5+0.5; this.o=Math.random()*0.4;} draw(){this.y-=this.v; if(this.y<-10) this.reset(); ctx.fillStyle=`rgba(57,255,20,${this.o})`; ctx.beginPath(); ctx.arc(this.x,this.y,this.s,0,Math.PI*2); ctx.fill();}};
-    resize(); for(let i=0;i<50;i++) parts.push(new Particle());
-    function loop(){ctx.clearRect(0,0,w,h); parts.forEach(p=>p.draw()); requestAnimationFrame(loop);} loop(); window.addEventListener('resize',resize);
+    class Particle { constructor() { this.reset(); } reset() { this.x = Math.random() * w; this.y = h + 10; this.s = Math.random() * 2 + 1; this.v = Math.random() * 0.5 + 0.5; this.o = Math.random() * 0.4; } draw() { this.y -= this.v; if (this.y < -10) this.reset(); ctx.fillStyle = `rgba(57,255,20,${this.o})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.s, 0, Math.PI * 2); ctx.fill(); } };
+    resize(); for (let i = 0; i < 50; i++) parts.push(new Particle());
+    function loop() { ctx.clearRect(0, 0, w, h); parts.forEach(p => p.draw()); requestAnimationFrame(loop); } loop(); window.addEventListener('resize', resize);
 }
 
 // Ensure init runs after DOM is ready

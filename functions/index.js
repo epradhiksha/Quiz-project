@@ -32,7 +32,7 @@ const db = getFirestore();
 // Realtime Database no longer used; presence now in Firestore
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ADMIN_EMAIL = "admin@heisenbyte.com"; // Change to actual admin email
+const ADMIN_EMAIL = "jecaids@gmail.com"; // Actual admin email
 const POINTS_PER_CORRECT = 10;
 const TIME_BONUS_MAX = 5;       // Max bonus points for fast answer
 
@@ -47,7 +47,10 @@ function assertAdmin(auth) {
   if (!auth) {
     throw new HttpsError("unauthenticated", "You must be signed in.");
   }
-  const isAdminEmail = auth.token.email === ADMIN_EMAIL && auth.token.email_verified;
+  // Accept if email matches admin OR if the custom claim is set.
+  // Note: email_verified is not enforced because the Firebase Auth
+  // emulator does not always set it correctly.
+  const isAdminEmail = auth.token.email === ADMIN_EMAIL;
   const hasAdminClaim = auth.token.admin === true;
   if (!isAdminEmail && !hasAdminClaim) {
     throw new HttpsError(

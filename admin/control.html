@@ -231,8 +231,22 @@
                         <span class="info-val" id="sidebar-participants">0</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-key">Timer</span>
-                        <span class="info-val">15 SEC</span>
+                        <span class="info-key">Timer (sec)</span>
+                        <span class="info-val">
+                            <select id="timer-select"
+                                style="background:var(--panel);color:var(--green);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:var(--font-mono);font-size:0.85rem;cursor:pointer;">
+                                <option value="10">10</option>
+                                <option value="15" selected>15</option>
+                                <option value="20">20</option>
+                                <option value="30">30</option>
+                                <option value="45">45</option>
+                                <option value="60">60</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div id="participant-warning"
+                        style="display:none;padding:6px 8px;margin-top:6px;background:rgba(255,62,62,0.1);border:1px solid rgba(255,62,62,0.3);border-radius:4px;font-family:var(--font-mono);font-size:0.65rem;color:var(--danger);letter-spacing:0.5px;">
+                        ⚠ Need at least 1 team to start
                     </div>
                 </div>
 
@@ -314,11 +328,11 @@
                         <span class="btn-label">REVEAL ANSWER</span>
                     </button>
 
-                    <!-- NEXT QUESTION -->
-                    <button class="ctrl-btn green" id="btn-next" data-tip="Advance to next question" disabled
+                    <!-- LOAD NEXT (preview only, doesn't push to users) -->
+                    <button class="ctrl-btn green" id="btn-next" data-tip="Load next question for preview" disabled
                         data-disabled="true">
                         <span class="btn-icon">⏭</span>
-                        <span class="btn-label">NEXT QUESTION</span>
+                        <span class="btn-label">LOAD NEXT</span>
                     </button>
 
                     <!-- SHOW LEADERBOARD -->
@@ -333,6 +347,13 @@
                         data-disabled="true">
                         <span class="btn-icon">🛑</span>
                         <span class="btn-label">END QUIZ</span>
+                    </button>
+
+                    <!-- RESTART QUIZ -->
+                    <button class="ctrl-btn red" id="btn-restart" data-tip="Reset quiz, clear all teams and scores"
+                        style="border-color:var(--warning);color:var(--warning);">
+                        <span class="btn-icon">🔄</span>
+                        <span class="btn-label">RESTART QUIZ</span>
                     </button>
 
                 </div>

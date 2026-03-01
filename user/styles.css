@@ -213,7 +213,8 @@ button:disabled {
     overflow: hidden;
 }
 
-.timer-bar {
+.timer-bar,
+.timer-line {
     height: 100%;
     width: 100%;
     background: var(--toxic-green);
@@ -269,7 +270,15 @@ button:disabled {
 
 .option-node.selected {
     border-color: var(--meth-blue);
-    background: rgba(0, 212, 255, 0.1);
+    background: rgba(0, 212, 255, 0.15);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+    opacity: 1 !important;
+}
+
+.option-node:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .option-node.correct {
@@ -361,4 +370,156 @@ button:disabled {
 ::-webkit-scrollbar-thumb {
     background: var(--toxic-green);
     border-radius: 2px;
+}
+
+/* ============ USER LEADERBOARD OVERLAY ============ */
+.user-leaderboard-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.user-leaderboard-overlay.hidden {
+    display: none;
+}
+
+.user-lb-panel {
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid var(--toxic-green);
+    border-radius: 12px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 0 30px rgba(57, 255, 20, 0.2);
+}
+
+.user-lb-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.4rem;
+    color: var(--toxic-green);
+    text-align: center;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+}
+
+.user-lb-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.user-lb-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.user-lb-row.my-team {
+    border-color: var(--meth-blue);
+    background: rgba(0, 212, 255, 0.1);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+}
+
+.user-lb-rank {
+    font-size: 1.2rem;
+    min-width: 36px;
+    text-align: center;
+}
+
+.user-lb-rank.gold {
+    color: #ffd700;
+}
+
+.user-lb-rank.silver {
+    color: #c0c0c0;
+}
+
+.user-lb-rank.bronze {
+    color: #cd7f32;
+}
+
+.user-lb-name {
+    flex: 1;
+    color: var(--text-main);
+    font-size: 0.95rem;
+}
+
+.user-lb-score {
+    color: var(--toxic-green);
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+/* ============ SCORE POPUP ============ */
+.score-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.score-popup.hidden {
+    display: none;
+}
+
+.score-popup-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 5rem;
+    font-weight: bold;
+    color: var(--toxic-green);
+    text-shadow: 0 0 40px rgba(57, 255, 20, 0.6), 0 0 80px rgba(57, 255, 20, 0.3);
+    animation: scorePopIn 0.6s ease-out;
+}
+
+.score-popup-value.wrong {
+    color: var(--danger-red);
+    text-shadow: 0 0 40px rgba(255, 62, 62, 0.6), 0 0 80px rgba(255, 62, 62, 0.3);
+}
+
+.score-popup-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.2rem;
+    letter-spacing: 4px;
+    color: var(--text-main);
+    margin-top: 8px;
+    animation: scorePopIn 0.6s ease-out 0.1s both;
+}
+
+@keyframes scorePopIn {
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+
+    60% {
+        transform: scale(1.15);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }

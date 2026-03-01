@@ -18,7 +18,10 @@ const btnReveal = document.getElementById("btn-reveal");
 const btnNext = document.getElementById("btn-next");
 const btnLeaderboard = document.getElementById("btn-leaderboard");
 const btnEndQuiz = document.getElementById("btn-end");
+const btnRestart = document.getElementById("btn-restart");
 const logoutBtn = document.getElementById("logout-btn");
+const timerSelect = document.getElementById("timer-select");
+const participantWarning = document.getElementById("participant-warning");
 
 const statusText = document.getElementById("status-text");
 const statusDot = document.getElementById("status-dot");
@@ -59,12 +62,14 @@ const SAMPLE_QUESTIONS = [
     { order: 0, questionText: "Which data structure uses LIFO (Last In First Out) principle?", options: ["Queue", "Stack", "Linked List", "Tree"], correctAnswer: "B", basePoints: 100 },
     { order: 1, questionText: "What is the time complexity of binary search?", options: ["O(n)", "O(n²)", "O(log n)", "O(1)"], correctAnswer: "C", basePoints: 100 },
     { order: 2, questionText: "Which of the following is NOT a JavaScript data type?", options: ["Undefined", "Boolean", "Float", "Symbol"], correctAnswer: "C", basePoints: 100 },
-    { order: 3, questionText: "What does HTTP stand for?", options: [
+    {
+        order: 3, questionText: "What does HTTP stand for?", options: [
             "HyperText Transfer Protocol",
             "HyperText Transmission Protocol",
             "High Transfer Test Protocol",
             "Host Transfer Text Protocol"
-        ], correctAnswer: "A", basePoints: 100 },
+        ], correctAnswer: "A", basePoints: 100
+    },
     { order: 4, questionText: "Which sorting algorithm has the best average-case complexity?", options: ["Bubble Sort", "Insertion Sort", "Merge Sort", "Selection Sort"], correctAnswer: "C", basePoints: 100 },
     { order: 5, questionText: "In Python, what is the output of: type([])?", options: ["<class 'array'>", "<class 'list'>", "<class 'tuple'>", "<class 'dict'>"], correctAnswer: "B", basePoints: 100 }
 ];
@@ -75,6 +80,7 @@ let pendingAction = null;
 let unsubState = null;
 let unsubLeaderboard = null;
 let unsubPresence = null;
+let participantCount = 0;  // tracks live team count for min-1 check
 
 // ============================================================
 // Init
@@ -200,17 +206,25 @@ function listenLeaderboard() {
 }
 
 // ============================================================
-// Listen to participant count (Firestore presence collection)
+// Listen to participant count (teams collection)
 // ============================================================
 function listenParticipants() {
-    HB.db.collection('presence').onSnapshot(snap => {
-        const count = snap.size;
-        if (participantEl) participantEl.textContent = count;
-    }, () => {
-        // Fallback: count teams
-        HB.teamsRef.onSnapshot((snap) => {
-            if (participantEl) participantEl.textContent = snap.size;
-        });
+    // Primary: count teams (more reliable than presence for "at least 1 user")
+    HB.teamsRef.onSnapshot((snap) => {
+        participantCount = snap.size;
+        if (participantEl) participantEl.textContent = participantCount;
+
+        // Show/hide warning about needing participants
+        if (participantWarning) {
+            participantWarning.style.display = participantCount === 0 ? 'block' : 'none';
+        }
+
+        // Re-evaluate button states based on participant count
+        if (quizState && quizState.status) {
+            updateButtonStates(quizState.status);
+        }
+    }, (err) => {
+        console.error('Teams listener error:', err);
     });
 }
 
@@ -236,10 +250,8 @@ function renderQuestion(q, status, answerRevealed) {
         // Reset classes
         item.classList.remove("correct", "hidden-answer");
 
-        // Hide answers until revealed
-        if (!answerRevealed && status !== "revealed" && status !== "ended") {
-            item.classList.add("hidden-answer");
-        }
+        // Admin always sees options clearly for preview.
+        // Only the correct-answer highlight is hidden until revealed.
     });
 
     if (answerRevealed || status === "revealed" || status === "ended") {
@@ -317,11 +329,19 @@ function updateButtonStates(status) {
     };
 
     const s = states[status] || states["idle"];
-    setButtonEnabled(btnActivate, s[0]);
+
+    // ACTIVATE requires at least 1 team
+    const canActivate = s[0] && participantCount > 0;
+    setButtonEnabled(btnActivate, canActivate);
     setButtonEnabled(btnReveal, s[1]);
     setButtonEnabled(btnNext, s[2]);
     setButtonEnabled(btnLeaderboard, s[3]);
     setButtonEnabled(btnEndQuiz, s[4]);
+
+    // Timer select should be disabled during active question
+    if (timerSelect) {
+        timerSelect.disabled = (status === 'active');
+    }
 }
 
 function setButtonEnabled(btn, enabled) {
@@ -340,7 +360,7 @@ function setButtonEnabled(btn, enabled) {
 // ============================================================
 function updateStatusBadge(status) {
     const map = {
-        "idle": { text: "NOT STARTED", dotClass: "amber" },
+        "idle": { text: "READY TO ACTIVATE", dotClass: "amber" },
         "active": { text: "QUESTION LIVE", dotClass: "" },
         "revealed": { text: "ANSWER REVEALED", dotClass: "amber" },
         "ended": { text: "ENDED", dotClass: "red" },
@@ -348,41 +368,87 @@ function updateStatusBadge(status) {
     const s = map[status] || { text: status, dotClass: "" };
     if (statusText) statusText.textContent = s.text;
     if (statusDot) statusDot.className = "qsb-dot qsb-dot-" + s.dotClass;
+
+    // Update the question card status tag
+    const qcardTag = document.getElementById("qcard-status-tag");
+    if (qcardTag) {
+        if (status === "idle") {
+            qcardTag.textContent = "👁 PREVIEW — SET TIMER → ACTIVATE";
+            qcardTag.style.color = "var(--meth-blue, #00d4ff)";
+        } else if (status === "active") {
+            qcardTag.textContent = "⏱ TIMER RUNNING";
+            qcardTag.style.color = "#39ff14";
+        } else if (status === "revealed") {
+            qcardTag.textContent = "✓ ANSWER VISIBLE";
+            qcardTag.style.color = "#39ff14";
+        } else if (status === "ended") {
+            qcardTag.textContent = "🏁 QUIZ ENDED";
+            qcardTag.style.color = "#ff3e3e";
+        } else {
+            qcardTag.textContent = "ANSWER HIDDEN";
+            qcardTag.style.color = "";
+        }
+    }
 }
 
 // ============================================================
 // CONTROL ACTIONS
 // ============================================================
 
-// ACTIVATE OR START QUESTION – use callable so server sets timestamps
+// ACTIVATE OR START QUESTION – direct Firestore write (avoids CORS issues with emulator)
 btnActivate && btnActivate.addEventListener("click", async () => {
     const idx = quizState.currentQuestion || 0;
     if (!questions[idx]) { showToast("No question at index " + idx, "error"); return; }
 
+    // Check minimum 1 participant
+    if (participantCount < 1) {
+        showToast("⚠ At least 1 team must join before activating!", "error");
+        return;
+    }
+
+    // Read timer duration from dropdown
+    TIMER_DURATION = parseInt(timerSelect ? timerSelect.value : 15) || 15;
+
     try {
-        const startFn = fns.httpsCallable('startQuestion');
-        const res = await startFn({ questionIndex: idx, timeLimitSeconds: TIMER_DURATION });
-        showToast(res.data.message || "⚡ Question activated! Timer started.");
+        const now = firebase.firestore.Timestamp.now();
+        const endTime = firebase.firestore.Timestamp.fromMillis(now.toMillis() + TIMER_DURATION * 1000);
+
+        await HB.quizStateRef.set({
+            status: "active",
+            currentQuestion: idx,
+            questionStartTime: now,
+            questionEndTime: endTime,
+            timeLimitSeconds: TIMER_DURATION,
+            totalQuestions: questions.length,
+            answerRevealed: false,
+            updatedAt: now
+        }, { merge: true });
+        showToast(`⚡ Question ${idx + 1} activated! Timer: ${TIMER_DURATION}s`);
     } catch (e) {
         showToast("Failed to start question", "error");
         console.error(e);
     }
 });
 
-// REVEAL ANSWER – ask backend to update status so only admin can call
+// REVEAL ANSWER – direct Firestore write
 btnReveal && btnReveal.addEventListener("click", async () => {
     try {
         stopTimer();
-        const revealFn = fns.httpsCallable('revealAnswer');
-        const res = await revealFn();
-        showToast(res.data.message || "✓ Answer revealed to participants.");
+        const now = firebase.firestore.Timestamp.now();
+        await HB.quizStateRef.update({
+            status: "revealed",
+            answerRevealed: true,
+            revealedAt: now,
+            updatedAt: now
+        });
+        showToast("✓ Answer revealed to participants.");
     } catch (e) {
         showToast("Failed to reveal answer", "error");
         console.error(e);
     }
 });
 
-// NEXT QUESTION – simply start the following question via callable
+// NEXT QUESTION – preview only (admin sees it, users wait until ACTIVATE)
 btnNext && btnNext.addEventListener("click", async () => {
     const idx = (quizState.currentQuestion || 0) + 1;
     const total = quizState.totalQuestions || questions.length;
@@ -394,23 +460,40 @@ btnNext && btnNext.addEventListener("click", async () => {
 
     try {
         resetTimerUI();
-        const startFn = fns.httpsCallable('startQuestion');
-        const res = await startFn({ questionIndex: idx, timeLimitSeconds: TIMER_DURATION });
-        showToast(res.data.message || `➡ Moved to question ${idx + 1}`);
+        // Move to next question but keep status 'idle' so users stay on waiting screen.
+        // Admin can preview the question, set the timer, then click ACTIVATE.
+        await HB.quizStateRef.set({
+            status: "idle",
+            currentQuestion: idx,
+            questionStartTime: null,
+            questionEndTime: null,
+            timeLimitSeconds: TIMER_DURATION,
+            totalQuestions: questions.length,
+            answerRevealed: false,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        showToast(`📋 Question ${idx + 1} loaded for preview. Set timer and click ACTIVATE when ready.`);
     } catch (e) {
         showToast("Failed to move to next question", "error");
         console.error(e);
     }
 });
 
-// SHOW / HIDE LEADERBOARD
-btnLeaderboard && btnLeaderboard.addEventListener("click", () => {
-    if (lbPanel.classList.contains("hidden")) {
+// SHOW / HIDE LEADERBOARD — also syncs to Firestore so users see it
+btnLeaderboard && btnLeaderboard.addEventListener("click", async () => {
+    const isHidden = lbPanel.classList.contains("hidden");
+    if (isHidden) {
         lbPanel.classList.remove("hidden");
         btnLeaderboard.querySelector(".btn-label").textContent = "HIDE LEADERBOARD";
     } else {
         lbPanel.classList.add("hidden");
         btnLeaderboard.querySelector(".btn-label").textContent = "SHOW LEADERBOARD";
+    }
+    // Sync to Firestore so users also see/hide the leaderboard
+    try {
+        await HB.quizStateRef.update({ showLeaderboard: isHidden });
+    } catch (e) {
+        console.error("Failed to sync leaderboard state:", e);
     }
 });
 
@@ -423,20 +506,95 @@ btnEndQuiz && btnEndQuiz.addEventListener("click", () => {
     confirmModal.classList.remove("hidden");
 });
 
+
+
+// LOGOUT
+logoutBtn && logoutBtn.addEventListener("click", () => {
+    if (confirm("Logout from admin panel?")) {
+        sessionStorage.removeItem(SESSION_KEY);
+        window.location.replace("index.html");
+    }
+});
+
+// ============================================================
+// RESTART QUIZ — clears all teams, responses, presence, resets state
+// ============================================================
+btnRestart && btnRestart.addEventListener("click", () => {
+    pendingAction = "restart";
+    confirmIcon.textContent = "🔄";
+    confirmTitle.textContent = "RESTART QUIZ";
+    confirmDesc.textContent = "This will DELETE all teams, their data, scores, and responses. The quiz will reset to a clean state. This cannot be undone!";
+    confirmModal.classList.remove("hidden");
+});
+
+// Handle confirm for both end and restart
 confirmYes && confirmYes.addEventListener("click", async () => {
     confirmModal.classList.add("hidden");
+
     if (pendingAction === "end") {
         try {
             stopTimer();
-            const endFn = fns.httpsCallable('endQuestion');
-            const res = await endFn();
-            showToast(res.data.message || "🏁 Quiz ended. Final leaderboard is live.");
+            const now = firebase.firestore.Timestamp.now();
+            await HB.quizStateRef.update({
+                status: "ended",
+                questionEndTime: now,
+                updatedAt: now
+            });
+            showToast("🏁 Quiz ended. Final leaderboard is live.");
             lbPanel.classList.remove("hidden");
         } catch (e) {
             showToast("Failed to end quiz", "error");
             console.error(e);
         }
     }
+
+    if (pendingAction === "restart") {
+        try {
+            showToast("🔄 Restarting quiz... Clearing all data.", "warning");
+            stopTimer();
+
+            // Delete all teams
+            const teamsSnap = await HB.teamsRef.get();
+            const deletePromises = [];
+            teamsSnap.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+            // Delete all responses
+            const respSnap = await HB.responsesRef.get();
+            respSnap.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+            // Delete all presence
+            const presSnap = await HB.presenceCollection.get();
+            presSnap.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+            // Delete all sessions
+            const sessSnap = await HB.db.collection('sessions').get();
+            sessSnap.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+            await Promise.all(deletePromises);
+
+            // Reset quiz metadata to idle
+            await HB.quizStateRef.set({
+                status: 'idle',
+                currentQuestion: 0,
+                totalQuestions: questions.length,
+                questionStartTime: null,
+                questionEndTime: null,
+                timeLimitSeconds: TIMER_DURATION,
+                answerRevealed: false,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            resetTimerUI();
+            participantCount = 0;
+            if (participantEl) participantEl.textContent = '0';
+
+            showToast("✓ Quiz restarted! All teams and data cleared.");
+        } catch (e) {
+            showToast("Failed to restart quiz", "error");
+            console.error(e);
+        }
+    }
+
     pendingAction = null;
 });
 
@@ -445,12 +603,14 @@ confirmNo && confirmNo.addEventListener("click", () => {
     pendingAction = null;
 });
 
-// LOGOUT
-logoutBtn && logoutBtn.addEventListener("click", () => {
-    if (confirm("Logout from admin panel?")) {
-        sessionStorage.removeItem(SESSION_KEY);
-        window.location.replace("index.html");
-    }
+// ============================================================
+// TIMER SELECT — update TIMER_DURATION when admin changes dropdown
+// ============================================================
+timerSelect && timerSelect.addEventListener("change", () => {
+    TIMER_DURATION = parseInt(timerSelect.value) || 15;
+    timerDisplay.textContent = TIMER_DURATION;
+    resetTimerUI();
+    showToast(`⏱ Timer set to ${TIMER_DURATION} seconds`);
 });
 
 // ============================================================

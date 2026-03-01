@@ -35,6 +35,34 @@ loginForm.addEventListener("submit", async (e) => {
     await sleep(700);
 
     if (email === ADMIN_EMAIL && pass === ADMIN_PASSWORD) {
+        try {
+            // Sign into Firebase Auth so Cloud Functions can verify admin identity.
+            // In emulator mode, the auth emulator will auto-create the user if needed.
+            await auth.signInWithEmailAndPassword(email, pass).catch(async (err) => {
+                if (err.code === 'auth/user-not-found') {
+                    // First time: create the user in the emulator
+                    await auth.createUserWithEmailAndPassword(email, pass);
+                } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+                    // Emulator may have a different password; recreate
+                    // For emulator mode, we just create a new account
+                    try {
+                        await auth.createUserWithEmailAndPassword(email, pass);
+                    } catch (createErr) {
+                        // If the account already exists with a different password in the emulator,
+                        // just log the warning and continue (session auth will still work)
+                        console.warn('Firebase Auth sign-in issue (emulator):', createErr.message);
+                    }
+                } else {
+                    throw err;
+                }
+            });
+            console.log('✓ Admin signed into Firebase Auth:', auth.currentUser?.uid);
+        } catch (authErr) {
+            console.warn('Firebase Auth sign-in warning:', authErr.message);
+            // In emulator mode, even if auth fails, we can still proceed with session-based auth
+            // The cloud functions may fail, but the admin panel UI will work
+        }
+
         sessionStorage.setItem(SESSION_KEY, "true");
         // Flash success before redirect
         loginBtn.style.background = "#00ff41";
