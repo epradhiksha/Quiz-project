@@ -132,6 +132,16 @@
             <div id="score-popup-value" class="score-popup-value">+10</div>
             <div id="score-popup-label" class="score-popup-label">CORRECT!</div>
         </div>
+
+        <!-- DISQUALIFIED OVERLAY (tab switch detected) -->
+        <div id="kicked-overlay" class="kicked-overlay hidden">
+            <div class="kicked-panel">
+                <div class="kicked-icon">⚠️</div>
+                <h2 class="kicked-title">DISQUALIFIED</h2>
+                <p class="kicked-msg">You switched away from the quiz page.<br>Your session has been terminated.</p>
+                <button id="kicked-reload-btn" class="kicked-btn" onclick="location.reload()">Rejoin Quiz</button>
+            </div>
+        </div>
     </div>
 
     <!-- Firebase CDN (compat v9) -->

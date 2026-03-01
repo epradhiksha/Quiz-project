@@ -105,6 +105,70 @@ function init() {
     try { listenTeamsJoined(); } catch (e) { console.error('listenTeamsJoined failed', e); }
     try { listenTeamDeleted(); } catch (e) { console.error('listenTeamDeleted failed', e); }
     try { listenUserLeaderboard(); } catch (e) { console.error('listenUserLeaderboard failed', e); }
+    setupTabSwitchDetection();
+}
+
+// --- Tab-switch / page-leave detection ---
+function setupTabSwitchDetection() {
+    let quizIsActive = false;
+
+    // Listen to quiz state to know if a question is active
+    db.doc('quiz/metadata').onSnapshot(snap => {
+        if (!snap.exists) { quizIsActive = false; return; }
+        const status = snap.data().status;
+        const activeStatuses = ['active', 'LIVE', 'QUESTION_ACTIVE'];
+        quizIsActive = activeStatuses.includes(status);
+    });
+
+    // Detect tab switching via Page Visibility API
+    document.addEventListener('visibilitychange', async () => {
+        if (document.hidden && quizIsActive && teamId) {
+            console.warn('⚠ Tab switch detected during active quiz!');
+            await handleTabSwitch();
+        }
+    });
+
+    // Detect page unload (closing tab, navigating away)
+    window.addEventListener('beforeunload', (e) => {
+        if (quizIsActive && teamId) {
+            // Mark tab switch in Firestore (fire-and-forget via sendBeacon not available for Firestore)
+            // The visibilitychange handler above will catch most cases
+            e.returnValue = 'You will be disqualified if you leave during the quiz!';
+        }
+    });
+}
+
+async function handleTabSwitch() {
+    try {
+        // 1. Flag the team as "tab switched" so admin sees it
+        if (teamId) {
+            await db.collection('teams').doc(teamId).update({
+                tabSwitched: true,
+                tabSwitchedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        // 2. Remove the team from the quiz
+        if (teamId) {
+            await db.collection('teams').doc(teamId).delete();
+        }
+
+        // 3. Clear local session
+        localStorage.removeItem('teamId');
+        localStorage.removeItem('teamName');
+        localStorage.removeItem('leadName');
+        teamId = null;
+
+        // 4. Show the disqualified overlay
+        const overlay = document.getElementById('kicked-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+
+    } catch (e) {
+        console.error('Error handling tab switch:', e);
+        // Still show the overlay even if Firestore operations fail
+        const overlay = document.getElementById('kicked-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+    }
 }
 
 // --- Detect quiz restart (team deleted by admin) ---

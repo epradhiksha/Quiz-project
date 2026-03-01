@@ -629,11 +629,13 @@ function updateLeaderboardUI(teams) {
         const rank = i + 1;
         const rCls = rank === 1 ? "r1" : rank === 2 ? "r2" : rank === 3 ? "r3" : "rX";
         const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+        const tabFlag = t.tabSwitched ? ` <span style="color:#ff3e3e;font-size:0.7rem;">⚠ TAB SWITCH</span>` : "";
         const row = document.createElement("div");
         row.className = "lb-row";
+        if (t.tabSwitched) row.style.borderColor = "#ff3e3e";
         row.innerHTML = `
       <div class="lb-rank ${rCls}">${medal}</div>
-      <div class="lb-name">${escHtml(t.teamName || t.name || "Unknown")}</div>
+      <div class="lb-name">${escHtml(t.teamName || t.name || "Unknown")}${tabFlag}</div>
       <div class="lb-score">${t.score || 0} pts</div>
     `;
         lbList.appendChild(row);
@@ -655,9 +657,10 @@ function updateSidebarLeaderboard(teams) {
         const clsMap = ["gold", "silver", "bronze", "", ""];
         const item = document.createElement("div");
         item.className = "participant-item";
+        const tabIcon = t.tabSwitched ? ' <span style="color:#ff3e3e;">⚠</span>' : "";
         item.innerHTML = `
       <span class="p-rank ${clsMap[i] || ""}">#${rank}</span>
-      <span class="p-name">${escHtml(t.teamName || t.name || "Unknown")}</span>
+      <span class="p-name">${escHtml(t.teamName || t.name || "Unknown")}${tabIcon}</span>
       <span class="p-score">${t.score || 0}</span>
     `;
         sidebarLbEl.appendChild(item);
