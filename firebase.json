@@ -21,11 +21,8 @@
       ]
     }
   ],
-  "database": {
-    "rules": "database.rules.json"
-  },
   "hosting": {
-    "public": "user",
+    "public": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -51,9 +48,6 @@
     },
     "firestore": {
       "port": 8080
-    },
-    "database": {
-      "port": 9000
     },
     "ui": {
       "enabled": true,

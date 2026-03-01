@@ -53,6 +53,21 @@ let quizState = {};
 const fns = firebase.app().functions('asia-south1');
 let questions = [];
 let currentQ = null;
+
+// --- sample questions (same as seeder) in case the database is empty ---
+const SAMPLE_QUESTIONS = [
+    { order: 0, questionText: "Which data structure uses LIFO (Last In First Out) principle?", options: ["Queue", "Stack", "Linked List", "Tree"], correctAnswer: "B", basePoints: 100 },
+    { order: 1, questionText: "What is the time complexity of binary search?", options: ["O(n)", "O(n²)", "O(log n)", "O(1)"], correctAnswer: "C", basePoints: 100 },
+    { order: 2, questionText: "Which of the following is NOT a JavaScript data type?", options: ["Undefined", "Boolean", "Float", "Symbol"], correctAnswer: "C", basePoints: 100 },
+    { order: 3, questionText: "What does HTTP stand for?", options: [
+            "HyperText Transfer Protocol",
+            "HyperText Transmission Protocol",
+            "High Transfer Test Protocol",
+            "Host Transfer Text Protocol"
+        ], correctAnswer: "A", basePoints: 100 },
+    { order: 4, questionText: "Which sorting algorithm has the best average-case complexity?", options: ["Bubble Sort", "Insertion Sort", "Merge Sort", "Selection Sort"], correctAnswer: "C", basePoints: 100 },
+    { order: 5, questionText: "In Python, what is the output of: type([])?", options: ["<class 'array'>", "<class 'list'>", "<class 'tuple'>", "<class 'dict'>"], correctAnswer: "B", basePoints: 100 }
+];
 let timerInterval = null;
 let timerSeconds = 15;
 let TIMER_DURATION = 15;
@@ -78,14 +93,46 @@ async function loadQuestions() {
     try {
         const snap = await HB.questionsRef.orderBy("order").get();
         if (snap.empty) {
-            // Try without orderBy
-            const snap2 = await HB.questionsRef.get();
+            // database empty – optionally seed sample set
+            console.warn('No questions found, seeding sample data');
+            if (SAMPLE_QUESTIONS && SAMPLE_QUESTIONS.length) {
+                for (const q of SAMPLE_QUESTIONS) {
+                    await HB.questionsRef.add(q);
+                }
+                showToast('📦 Database was empty; sample questions have been added.', 'warning');
+            }
+            // re-fetch after seeding
+            const snap2 = await HB.questionsRef.orderBy("order").get();
             questions = snap2.docs.map(d => ({ id: d.id, ...d.data() }));
         } else {
             questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         }
+
         qTotalDisplay.textContent = questions.length;
-        showToast(`✓ Loaded ${questions.length} questions`);
+        showToast(`✓ Loaded ${questions.length} question${questions.length === 1 ? '' : 's'}`);
+
+        // if there is no quiz metadata yet, create a default idle state so
+        // the UI status and counters update immediately (avoids "LOADING...")
+        const stateSnap = await HB.quizStateRef.get();
+        if (!stateSnap.exists) {
+            console.log('Creating default quiz metadata');
+            await HB.quizStateRef.set({
+                status: 'idle',
+                currentQuestion: 0,
+                totalQuestions: questions.length,
+                questionStartTime: null,
+                questionEndTime: null,
+                timeLimitSeconds: 15,
+                answerRevealed: false,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        // If we already know current question (from state listener) render it
+        if (quizState && typeof quizState.currentQuestion === 'number') {
+            currentQ = questions[quizState.currentQuestion] || null;
+            renderQuestion(currentQ, quizState.status, quizState.answerRevealed);
+        }
     } catch (e) {
         console.error("Failed to load questions:", e);
         showToast("Failed to load questions from Firestore", "error");
@@ -153,11 +200,11 @@ function listenLeaderboard() {
 }
 
 // ============================================================
-// Listen to participant count (Realtime DB presence)
+// Listen to participant count (Firestore presence collection)
 // ============================================================
 function listenParticipants() {
-    HB.presenceRef.on("value", (snap) => {
-        const count = snap.numChildren ? snap.numChildren() : 0;
+    HB.db.collection('presence').onSnapshot(snap => {
+        const count = snap.size;
         if (participantEl) participantEl.textContent = count;
     }, () => {
         // Fallback: count teams

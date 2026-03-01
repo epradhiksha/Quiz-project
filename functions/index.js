@@ -9,7 +9,7 @@
  *  - Duplicate submissions blocked with Firestore transactions
  *  - Late submissions rejected by comparing server timestamp to questionEndTime
  *  - correctIndex NEVER returned to clients (Admin SDK reads bypass rules)
- *  - Multi-device logins tracked via RTDB sessions node
+ *  - Multi-device logins tracked via Firestore sessions collection
  *
  * Functions exposed:
  *   submitAnswer      — Participant submits answer (HTTPS Callable)
@@ -24,14 +24,12 @@
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onValueDeleted } = require("firebase-functions/v2/database");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
-const { getDatabase } = require("firebase-admin/database");
 
 initializeApp();
 const db = getFirestore();
-const rtdb = getDatabase();
+// Realtime Database no longer used; presence now in Firestore
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ADMIN_EMAIL = "admin@heisenbyte.com"; // Change to actual admin email
@@ -135,15 +133,29 @@ exports.submitAnswer = onCall({ region: "asia-south1" }, async (request) => {
   const responseId = `${teamId}_q${questionIndex}`;
   const responseRef = db.doc(`responses/${responseId}`);
 
-  // ── Read the correct answer from a dedicated answers collection.
-  // This collection is admin-only so clients can never enumerate answers.
-  const answerRef = db.doc(`answers/${questionIndex}`);
-  const answerSnap = await answerRef.get();
-  if (!answerSnap.exists) {
-    // fallback: question may not have an answer entry
-    throw new HttpsError("not-found", `Answer for question ${questionIndex} not found.`);
+  // ── Read the question document by its `order` field (the seeder writes `order`).
+  // Older code expected numeric doc IDs or a separate `answers` collection; the
+  // seeder in the admin UI uses auto IDs with an `order` field so we query by that.
+  const qQuery = await db.collection('questions').where('order', '==', questionIndex).limit(1).get();
+  if (qQuery.empty) {
+    throw new HttpsError('not-found', `Question ${questionIndex} not found.`);
   }
-  const { correctIndex } = answerSnap.data();
+  const qDoc = qQuery.docs[0];
+  const qData = qDoc.data();
+  // Accept correct answer stored either as a letter 'A'..'D' or numeric index 0..3
+  let correctIndex;
+  if (typeof qData.correctAnswer === 'number') {
+    correctIndex = qData.correctAnswer;
+  } else if (typeof qData.correctAnswer === 'string') {
+    const letter = qData.correctAnswer.trim().toUpperCase();
+    const map = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+    correctIndex = map[letter] !== undefined ? map[letter] : null;
+  } else {
+    correctIndex = null;
+  }
+  if (correctIndex === null || correctIndex === undefined) {
+    throw new HttpsError('not-found', `Correct answer for question ${questionIndex} not available.`);
+  }
   const isCorrect = selectedOption === correctIndex;
 
   // ── Calculate points with time bonus ─────────────────────────────────────
@@ -215,11 +227,12 @@ exports.startQuestion = onCall({ region: "asia-south1" }, async (request) => {
   }
   const timeLimit = timeLimitSeconds || 30;
 
-  // Verify the question exists
-  const questionSnap = await db.doc(`questions/${questionIndex}`).get();
-  if (!questionSnap.exists) {
-    throw new HttpsError("not-found", `Question ${questionIndex} does not exist.`);
+  // Verify the question exists (query by `order` field used by the seeder)
+  const qQuery = await db.collection('questions').where('order', '==', questionIndex).limit(1).get();
+  if (qQuery.empty) {
+    throw new HttpsError('not-found', `Question ${questionIndex} does not exist.`);
   }
+  const questionSnap = qQuery.docs[0];
 
   const now = Timestamp.now();
   const questionEndTime = Timestamp.fromMillis(now.toMillis() + timeLimit * 1000);
@@ -311,7 +324,7 @@ exports.resetQuiz = onCall({ region: "asia-south1" }, async (request) => {
  * Returns teams sorted by score (descending), capped at top 50.
  * Does NOT expose correctIndex or internal fields.
  */
-exports.getLeaderboard = onCall({ region: "asia-south1" }, async (request) => {
+exports.getLeaderboard = onCall({ region: "asia-south1" }, async (_request) => {
   const teamsSnap = await db
     .collection("teams")
     .orderBy("score", "desc")
@@ -321,7 +334,7 @@ exports.getLeaderboard = onCall({ region: "asia-south1" }, async (request) => {
   const leaderboard = teamsSnap.docs.map((doc, index) => ({
     rank: index + 1,
     teamId: doc.id,
-    name: doc.data().name || "Unknown Team",
+    name: doc.data().teamName || doc.data().name || "Unknown Team",
     score: doc.data().score || 0,
     members: doc.data().members || [],
   }));
@@ -363,12 +376,12 @@ exports.setAdminClaim = onCall({ region: "asia-south1" }, async (request) => {
 
 // ─┤ onPresenceDeleted ├───────────────────────────────────────────────────────
 /**
- * RTDB trigger: fires when a user's presence node is deleted
- * (i.e., when the client disconnects and onDisconnect() triggers).
- * Marks the participant as offline in Firestore participants collection.
+ * Firestore trigger: fires when a presence document is deleted.
+ * Marks the corresponding participant record offline if needed.
  */
-exports.onPresenceDeleted = onValueDeleted(
-  { ref: "/presence/{uid}", region: "asia-south1" },
+const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
+exports.onPresenceDeleted = onDocumentDeleted(
+  'presence/{uid}',
   async (event) => {
     const uid = event.params.uid;
     const participantRef = db.doc(`participants/${uid}`);
@@ -387,8 +400,8 @@ exports.onPresenceDeleted = onValueDeleted(
 // ─┤ cleanupPresence ├─────────────────────────────────────────────────────────
 /**
  * Scheduled function: runs every 10 minutes.
- * Sweeps RTDB presence entries older than 15 minutes and removes them.
- * Handles the case where onDisconnect() did not fire (e.g., hard network loss).
+ * Sweeps Firestore presence collection for entries older than 15 minutes
+ * and deletes them.  This replaces the previous RTDB-based cleanup.
  */
 exports.cleanupPresence = onSchedule(
   { schedule: "every 10 minutes", region: "asia-south1" },
@@ -396,31 +409,25 @@ exports.cleanupPresence = onSchedule(
     const now = Date.now();
     const staleThresholdMs = 15 * 60 * 1000; // 15 minutes
 
-    const presenceRef = rtdb.ref("presence");
-    const snap = await presenceRef.once("value");
+    const snap = await db.collection('presence').get();
+    const batch = db.batch();
+    let removed = 0;
 
-    if (!snap.exists()) return;
-
-    const staleUids = [];
-    snap.forEach((child) => {
-      const data = child.val();
-      if (data && data.connectedAt && now - data.connectedAt > staleThresholdMs) {
-        if (!data.online) {
-          staleUids.push(child.key);
-        }
+    snap.forEach(doc => {
+      const data = doc.data();
+      const ts = data && data.connectedAt && data.connectedAt.toMillis ? data.connectedAt.toMillis() : 0;
+      if (ts && now - ts > staleThresholdMs) {
+        batch.delete(doc.ref);
+        removed++;
       }
     });
 
-    const cleanupPromises = staleUids.map((uid) =>
-      presenceRef.child(uid).remove()
-    );
-    await Promise.all(cleanupPromises);
-
-    console.log(`cleanupPresence: removed ${staleUids.length} stale presence entries.`);
+    if (removed > 0) await batch.commit();
+    console.log(`cleanupPresence: removed ${removed} stale presence entries.`);
   }
 );
 
-// ─┤ lockQuizQuestion (RTDB-triggered auto-lock) ├─────────────────────────────
+// ─┤ lockQuizQuestion (auto-lock) ├─────────────────────────────────────────────
 /**
  * For extra safety: if the client timer expired but Admin forgot to call endQuestion,
  * this HTTP callable lets the client request a lock check (server validates timestamp).

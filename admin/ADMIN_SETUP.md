@@ -23,7 +23,6 @@ Open `admin/js/firebase-config.js` and replace the placeholder values:
 const FIREBASE_CONFIG = {
   apiKey:            "YOUR_API_KEY",          // ← from Firebase console
   authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  databaseURL:       "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
   projectId:         "YOUR_PROJECT_ID",
   storageBucket:     "YOUR_PROJECT.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
@@ -63,7 +62,7 @@ Since we use Firebase Auth for secure admin writes:
 firebase deploy --only firestore:rules
 ```
 
-### Realtime DB Rules
+### Firestore Rules (Realtime Database no longer used)
 ```bash
 firebase deploy --only database
 ```
@@ -145,8 +144,7 @@ Quiz-project/
 │       ├── lobby.js            ← Lobby real-time logic
 │       └── control.js          ← Control panel engine
 ├── firestore.rules       ← Firestore security rules
-├── database.rules.json   ← Realtime DB rules
-└── README.md
+├── database.rules.json   ← (unused; previous RTDB rules)└── README.md
 ```
 
 ---

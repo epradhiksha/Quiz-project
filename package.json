@@ -1,0 +1,21 @@
+{
+  "name": "quiz-project",
+  "version": "1.0.0",
+  "description": "A real-time, admin-controlled technical quiz platform developed for symposium events.  \r This system enables multiple teams to participate simultaneously with time-based scoring, centralized admin control, secure backend validation, and live leaderboard updates using Firebase.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epradhiksha/Quiz-project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/epradhiksha/Quiz-project/issues"
+  },
+  "homepage": "https://github.com/epradhiksha/Quiz-project#readme"
+}

@@ -53,11 +53,10 @@ function listenQuizState() {
     });
 }
 
-// ---- Listen to participant count (Realtime DB presence) ----
+// ---- Listen to participant count (Firestore presence collection) ----
 function listenParticipants() {
-    HB.presenceRef.on("value", (snap) => {
-        const count = snap.numChildren ? snap.numChildren() : 0;
-        animateCount(participantCount, count);
+    HB.db.collection('presence').onSnapshot((snap) => {
+        animateCount(participantCount, snap.size);
     }, () => {
         // Fallback: count from teams collection
         HB.teamsRef.onSnapshot((snap) => {

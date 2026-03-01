@@ -191,6 +191,21 @@
                 options: ["var", "let", "final", "const"],
                 correctAnswer: "D",
                 basePoints: 100
+            },
+            // custom questions requested by user
+            {
+                order: 10,
+                questionText: "a = [1,2,3]\nb = [[1,2,3]]\nprint(a in b)\n\nA) True\nB) False\nC) Error\nD) None",
+                options: ["True", "False", "Error", "None"],
+                correctAnswer: "A",
+                basePoints: 100
+            },
+            {
+                order: 11,
+                questionText: "a = [1,2,3]\nb = [1,2,3]\nprint(a is b)\nprint(a in b)\n\nA) True True\nB) False True\nC) False False\nD) Error",
+                options: ["True True", "False True", "False False", "Error"],
+                correctAnswer: "C",
+                basePoints: 100
             }
         ];
 
@@ -224,20 +239,21 @@
 
         // ── RESET STATE ──
         document.getElementById("reset-btn").addEventListener("click", async () => {
-            if (!confirm("Reset quiz state to NOT_STARTED?")) return;
+            if (!confirm("Reset quiz state to IDLE?")) return;
             log("🔄 Resetting quiz state...", "inf");
             try {
+                // Use the metadata shape expected by the client and functions
                 await HB.quizStateRef.set({
-                    status: "NOT_STARTED",
-                    currentQuestionIndex: 0,
-                    questionTotal: SAMPLE_QUESTIONS.length,
-                    startedAt: null,
-                    endedAt: null,
-                    timerStart: null,
-                    timerDuration: 15,
-                    revealedAt: null
-                });
-                log("✅ Quiz state reset to NOT_STARTED", "ok");
+                    status: "idle",
+                    currentQuestion: 0,
+                    totalQuestions: SAMPLE_QUESTIONS.length,
+                    questionStartTime: null,
+                    questionEndTime: null,
+                    timeLimitSeconds: 15,
+                    answerRevealed: false,
+                    updatedAt: null
+                }, { merge: true });
+                log("✅ Quiz state reset to idle", "ok");
             } catch (e) {
                 log(`✗ Error: ${e.message}`, "err");
             }
