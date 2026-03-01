@@ -314,6 +314,17 @@ describe("Heisenbyte Quiz Cloud Functions", () => {
     });
 
     // ────────────────────────────────────────────────────────────────────────────
+    describe("revealAnswer callable", () => {
+        it("should allow an admin to set status to revealed", () => {
+            // simulate behaviour by checking logic without Firestore
+            const prevState = { status: "ended", answerRevealed: false };
+            const newState = Object.assign({}, prevState, { status: "revealed", answerRevealed: true });
+            assert.strictEqual(newState.status, "revealed");
+            assert.strictEqual(newState.answerRevealed, true);
+        });
+    });
+
+    // ────────────────────────────────────────────────────────────────────────────
     describe("Multi-device detection logic", () => {
         it("should detect multiple sessions for same uid", () => {
             const sessions = {

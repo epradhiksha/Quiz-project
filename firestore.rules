@@ -50,25 +50,29 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(fields);
     }
 
-    // ─── quizState ─────────────────────────────────────────────────────────────
-    // Single doc: quizState/current
-    // Anyone can read (needed for participants to follow quiz flow).
-    // Only Admin can write.
-    match /quizState/{docId} {
+    // ─── quiz ─────────────────────────────────────────────────────────────────
+    // Single doc: quiz/metadata (formerly quizState/current).
+    // This document acts as the single source of truth for real‑time quiz
+    // status and timing.  Clients may only read it; only an admin account
+    // is permitted to update it.
+    match /quiz/{docId} {
       allow read: if true;
       allow write: if isAdminUser();
     }
 
     // ─── questions ─────────────────────────────────────────────────────────────
-    // Admin can do anything.
-    // Authenticated users (participants) can read questions,
-    // BUT the correctIndex field is masked — clients should NEVER receive it.
-    // The Cloud Function reads correctIndex via Admin SDK (bypasses rules).
+    // Admin can do anything.  Participants may read question text and options
+    // but accurate answers are stored in a separate `answers` collection.
     match /questions/{questionId} {
-      allow read: if isAuthed() &&
-                     // Deny reads if the client explicitly requests correctIndex
-                     !("correctIndex" in request.query.fieldFilter);
+      allow read: if isAuthed();
       allow write: if isAdminUser();
+    }
+
+    // ─── answers ───────────────────────────────────────────────────────────────
+    // Stores the correctIndex for each question.  Only admin (or cloud
+    // functions running with the admin SDK) may read or write this data.
+    match /answers/{questionId} {
+      allow read, write: if isAdminUser();
     }
 
     // ─── teams ─────────────────────────────────────────────────────────────────

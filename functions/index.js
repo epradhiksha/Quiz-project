@@ -37,7 +37,12 @@ const rtdb = getDatabase();
 const ADMIN_EMAIL = "admin@heisenbyte.com"; // Change to actual admin email
 const POINTS_PER_CORRECT = 10;
 const TIME_BONUS_MAX = 5;       // Max bonus points for fast answer
-const QUIZ_STATE_DOC = "quizState/current";
+
+// The Firestore document that controls quiz state.  Admin and user clients
+// listen to this single document for all real‑time updates.  The previous
+// implementation used `quizState/current`; for consistency with the web UI
+// we now store the state under the `quiz` collection as `metadata`.
+const QUIZ_STATE_DOC = "quiz/metadata";
 
 // ─── Helper: Verify Admin ─────────────────────────────────────────────────────
 function assertAdmin(auth) {
@@ -130,14 +135,16 @@ exports.submitAnswer = onCall({ region: "asia-south1" }, async (request) => {
   const responseId = `${teamId}_q${questionIndex}`;
   const responseRef = db.doc(`responses/${responseId}`);
 
-  // ── Read the question's correct answer (Admin SDK — bypasses Firestore rules) ──
-  const questionRef = db.doc(`questions/${questionIndex}`);
-  const questionSnap = await questionRef.get();
-  if (!questionSnap.exists) {
-    throw new HttpsError("not-found", `Question ${questionIndex} not found.`);
+  // ── Read the correct answer from a dedicated answers collection.
+  // This collection is admin-only so clients can never enumerate answers.
+  const answerRef = db.doc(`answers/${questionIndex}`);
+  const answerSnap = await answerRef.get();
+  if (!answerSnap.exists) {
+    // fallback: question may not have an answer entry
+    throw new HttpsError("not-found", `Answer for question ${questionIndex} not found.`);
   }
-  const question = questionSnap.data();
-  const isCorrect = selectedOption === question.correctIndex;
+  const { correctIndex } = answerSnap.data();
+  const isCorrect = selectedOption === correctIndex;
 
   // ── Calculate points with time bonus ─────────────────────────────────────
   let pointsAwarded = 0;
@@ -224,6 +231,7 @@ exports.startQuestion = onCall({ region: "asia-south1" }, async (request) => {
     questionEndTime,
     timeLimitSeconds: timeLimit,
     totalQuestions: questionSnap.data().totalQuestions || null,
+    answerRevealed: false,
     updatedAt: now,
   }, { merge: true });
 
@@ -319,6 +327,23 @@ exports.getLeaderboard = onCall({ region: "asia-south1" }, async (request) => {
   }));
 
   return { leaderboard };
+});
+
+// ─┤ revealAnswer ├──────────────────────────────────────────────────────────
+/**
+ * Admin triggers answer reveal after closing submissions.  This just changes
+ * quiz state to "revealed" so clients can unmask the correct option.
+ */
+exports.revealAnswer = onCall({ region: "asia-south1" }, async (request) => {
+  assertAdmin(request.auth);
+  const now = Timestamp.now();
+  await db.doc(QUIZ_STATE_DOC).update({
+    status: "revealed",
+    answerRevealed: true,
+    revealedAt: now,
+    updatedAt: now,
+  });
+  return { success: true, message: "Answer is now revealed to participants." };
 });
 
 // ─┤ setAdminClaim ├───────────────────────────────────────────────────────────

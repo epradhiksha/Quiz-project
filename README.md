@@ -222,6 +222,22 @@ Select:
 firebase emulators:start
 ```
 
+> The emulators are configured in `firebase.json` to run Auth, Firestore,
+> Realtime Database, Functions and Hosting. When the server is running you
+> can access the web UI at http://localhost:4000 and hit the admin panel at
+> http://localhost:5000/admin (or simply navigate to `/admin` in your browser).
+>
+> Use the emulator UI to create sample questions, teams and simulate presence.
+>
+> **Test scenarios:**
+> 1. Sign in as an admin and call `startQuestion`/`endQuestion`/`revealAnswer`.
+> 2. Open a user window, login anonymously, join a team and follow the quiz.
+> 3. Submit answers rapidly, attempt duplicates or late submissions to
+>    confirm the Cloud Function rejects them.
+> 4. Verify the `answers/` collection is not readable by a regular user.
+> 5. Check leaderboard updates in real time and unauthorized score writes
+>    are blocked by security rules.
+
 ## 6️⃣ Deploy to Production
 
 ```bash

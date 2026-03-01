@@ -22,6 +22,24 @@
     "database": {
         "rules": "database.rules.json"
     },
+    "hosting": {
+        "public": "user",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "/admin/**",
+                "destination": "/admin/index.html"
+            },
+            {
+                "source": "**",
+                "destination": "/user/index.html"
+            }
+        ]
+    },
     "emulators": {
         "auth": {
             "port": 9099

@@ -3,20 +3,23 @@
 // Replace the values below with your actual Firebase project config
 // ============================================================
 
-const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+const firebaseConfig = {
+  apiKey: "AIzaSyC1QGATtd7i5_g_bvqOZeFq1VjzikjcS1E",
+  authDomain: "quiz-project-3a083.firebaseapp.com",
+  databaseURL: "https://quiz-project-3a083-default-rtdb.firebaseio.com",
+  projectId: "quiz-project-3a083",
+  storageBucket: "quiz-project-3a083.firebasestorage.app",
+  messagingSenderId: "326199412801",
+  appId: "1:326199412801:web:f61ac6362c32d499629ec0",
+  measurementId: "G-JPK1C1YY1J"
 };
+
 
 // ---- Initialize Firebase ----
 if (!firebase.apps || !firebase.apps.length) {
-  firebase.initializeApp(FIREBASE_CONFIG);
+  firebase.initializeApp(firebaseConfig);
 }
+
 
 const db = firebase.firestore();
 const rtdb = firebase.database();   // Realtime DB (for presence/online count)

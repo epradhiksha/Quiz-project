@@ -48,6 +48,9 @@ const toastContainer = document.getElementById("toast-container");
 // State
 // ============================================================
 let quizState = {};
+
+// region-specific functions client (must match backend region)
+const fns = firebase.app().functions('asia-south1');
 let questions = [];
 let currentQ = null;
 let timerInterval = null;
@@ -96,33 +99,41 @@ function listenQuizState() {
     unsubState = HB.quizStateRef.onSnapshot((doc) => {
         if (!doc.exists) return;
         quizState = doc.data();
-        const { status, currentQuestionIndex } = quizState;
+        const {
+            status,
+            currentQuestion,
+            questionStartTime,
+            questionEndTime,
+            timeLimitSeconds,
+            totalQuestions,
+            answerRevealed
+        } = quizState;
 
-        // Update UI
+        // Update UI badges and question counter
         updateStatusBadge(status);
-        qNumDisplay.textContent = (currentQuestionIndex || 0) + 1;
+        qNumDisplay.textContent = ((currentQuestion || 0) + 1);
 
-        // Load and display current question
+        // Load and display current question content
         if (questions.length > 0) {
-            currentQ = questions[currentQuestionIndex || 0] || null;
-            renderQuestion(currentQ, status);
+            currentQ = questions[currentQuestion || 0] || null;
+            renderQuestion(currentQ, status, answerRevealed);
         }
 
-        // Update button states based on quiz status
+        // Buttons should reflect current status
         updateButtonStates(status);
 
-        // Handle timer
-        if (status === "QUESTION_ACTIVE") {
-            startTimer(quizState.timerStart, quizState.timerDuration || TIMER_DURATION);
+        // Timer logic based on status
+        if (status === "active") {
+            startTimer(questionStartTime, timeLimitSeconds || TIMER_DURATION);
         } else {
             stopTimer();
-            if (status === "ANSWER_REVEALED") {
+            if (status === "ended" || status === "revealed") {
                 revealAnswerUI(currentQ);
             }
         }
 
-        // If quiz ended → show final state
-        if (status === "ENDED") {
+        // If quiz is over entirely, show end state
+        if (status === "ended" && totalQuestions && currentQuestion >= totalQuestions - 1) {
             showEndedState();
         }
     });
@@ -159,7 +170,7 @@ function listenParticipants() {
 // ============================================================
 // Render current question
 // ============================================================
-function renderQuestion(q, status) {
+function renderQuestion(q, status, answerRevealed) {
     if (!q) {
         questionText.textContent = "No questions loaded. Add questions to Firestore.";
         optionItems.forEach(opt => { opt.dataset.label = ""; });
@@ -179,12 +190,12 @@ function renderQuestion(q, status) {
         item.classList.remove("correct", "hidden-answer");
 
         // Hide answers until revealed
-        if (status !== "ANSWER_REVEALED" && status !== "ENDED") {
+        if (!answerRevealed && status !== "revealed" && status !== "ended") {
             item.classList.add("hidden-answer");
         }
     });
 
-    if (status === "ANSWER_REVEALED" || status === "ENDED") {
+    if (answerRevealed || status === "revealed" || status === "ended") {
         revealAnswerUI(q);
     }
 }
@@ -252,14 +263,13 @@ function resetTimerUI() {
 function updateButtonStates(status) {
     const states = {
         // [activate, reveal, next, leaderboard, end]
-        "NOT_STARTED": [true, false, false, true, true],
-        "LIVE": [true, false, false, true, true],
-        "QUESTION_ACTIVE": [false, true, false, true, false],
-        "ANSWER_REVEALED": [false, false, true, true, true],
-        "ENDED": [false, false, false, true, false],
+        "idle": [true, false, false, true, true],
+        "active": [false, true, false, true, false],
+        "revealed": [false, false, true, true, true],
+        "ended": [false, false, false, true, false],
     };
 
-    const s = states[status] || states["LIVE"];
+    const s = states[status] || states["idle"];
     setButtonEnabled(btnActivate, s[0]);
     setButtonEnabled(btnReveal, s[1]);
     setButtonEnabled(btnNext, s[2]);
@@ -283,11 +293,10 @@ function setButtonEnabled(btn, enabled) {
 // ============================================================
 function updateStatusBadge(status) {
     const map = {
-        "NOT_STARTED": { text: "NOT STARTED", dotClass: "amber" },
-        "LIVE": { text: "LIVE", dotClass: "" },
-        "QUESTION_ACTIVE": { text: "Q ACTIVE", dotClass: "" },
-        "ANSWER_REVEALED": { text: "REVEALED", dotClass: "amber" },
-        "ENDED": { text: "ENDED", dotClass: "red" },
+        "idle": { text: "NOT STARTED", dotClass: "amber" },
+        "active": { text: "QUESTION LIVE", dotClass: "" },
+        "revealed": { text: "ANSWER REVEALED", dotClass: "amber" },
+        "ended": { text: "ENDED", dotClass: "red" },
     };
     const s = map[status] || { text: status, dotClass: "" };
     if (statusText) statusText.textContent = s.text;
@@ -298,44 +307,38 @@ function updateStatusBadge(status) {
 // CONTROL ACTIONS
 // ============================================================
 
-// ACTIVATE QUESTION
+// ACTIVATE OR START QUESTION – use callable so server sets timestamps
 btnActivate && btnActivate.addEventListener("click", async () => {
-    const idx = quizState.currentQuestionIndex || 0;
+    const idx = quizState.currentQuestion || 0;
     if (!questions[idx]) { showToast("No question at index " + idx, "error"); return; }
 
     try {
-        await HB.quizStateRef.update({
-            status: "QUESTION_ACTIVE",
-            timerStart: firebase.firestore.FieldValue.serverTimestamp(),
-            timerDuration: TIMER_DURATION,
-            questionActivatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        showToast("⚡ Question activated! Timer started.");
+        const startFn = fns.httpsCallable('startQuestion');
+        const res = await startFn({ questionIndex: idx, timeLimitSeconds: TIMER_DURATION });
+        showToast(res.data.message || "⚡ Question activated! Timer started.");
     } catch (e) {
-        showToast("Failed to activate question", "error");
+        showToast("Failed to start question", "error");
         console.error(e);
     }
 });
 
-// REVEAL ANSWER
+// REVEAL ANSWER – ask backend to update status so only admin can call
 btnReveal && btnReveal.addEventListener("click", async () => {
     try {
         stopTimer();
-        await HB.quizStateRef.update({
-            status: "ANSWER_REVEALED",
-            revealedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        showToast("✓ Answer revealed to participants.");
+        const revealFn = fns.httpsCallable('revealAnswer');
+        const res = await revealFn();
+        showToast(res.data.message || "✓ Answer revealed to participants.");
     } catch (e) {
         showToast("Failed to reveal answer", "error");
         console.error(e);
     }
 });
 
-// NEXT QUESTION
+// NEXT QUESTION – simply start the following question via callable
 btnNext && btnNext.addEventListener("click", async () => {
-    const idx = (quizState.currentQuestionIndex || 0) + 1;
-    const total = quizState.questionTotal || questions.length;
+    const idx = (quizState.currentQuestion || 0) + 1;
+    const total = quizState.totalQuestions || questions.length;
 
     if (idx >= total) {
         showToast("⚠ That was the last question! Use End Quiz.", "warn");
@@ -344,12 +347,9 @@ btnNext && btnNext.addEventListener("click", async () => {
 
     try {
         resetTimerUI();
-        await HB.quizStateRef.update({
-            status: "LIVE",
-            currentQuestionIndex: idx,
-            timerStart: null
-        });
-        showToast(`➡ Moved to question ${idx + 1}`);
+        const startFn = fns.httpsCallable('startQuestion');
+        const res = await startFn({ questionIndex: idx, timeLimitSeconds: TIMER_DURATION });
+        showToast(res.data.message || `➡ Moved to question ${idx + 1}`);
     } catch (e) {
         showToast("Failed to move to next question", "error");
         console.error(e);
@@ -381,12 +381,9 @@ confirmYes && confirmYes.addEventListener("click", async () => {
     if (pendingAction === "end") {
         try {
             stopTimer();
-            await HB.quizStateRef.update({
-                status: "ENDED",
-                endedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showToast("🏁 Quiz ended. Final leaderboard is live.");
-            // Show leaderboard automatically
+            const endFn = fns.httpsCallable('endQuestion');
+            const res = await endFn();
+            showToast(res.data.message || "🏁 Quiz ended. Final leaderboard is live.");
             lbPanel.classList.remove("hidden");
         } catch (e) {
             showToast("Failed to end quiz", "error");
