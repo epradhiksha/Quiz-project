@@ -4,13 +4,13 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC1QGATtd7i5_g_bvqOZeFq1VjzikjcS1E",
-  authDomain: "quiz-project-3a083.firebaseapp.com",
-  projectId: "quiz-project-3a083",
-  storageBucket: "quiz-project-3a083.firebasestorage.app",
-  messagingSenderId: "326199412801",
-  appId: "1:326199412801:web:f61ac6362c32d499629ec0",
-  measurementId: "G-JPK1C1YY1J"
+  apiKey: "AIzaSyC7kRIkzJrtmz-bN8uR2wrLhgvJc8rXPs8",
+  authDomain: "heisenbyte-quiz.firebaseapp.com",
+  projectId: "heisenbyte-quiz",
+  storageBucket: "heisenbyte-quiz.firebasestorage.app",
+  messagingSenderId: "612743346472",
+  appId: "1:612743346472:web:44f105b49824d1007c381d",
+  measurementId: "G-7Z5TE18ZFN"
 };
 
 
