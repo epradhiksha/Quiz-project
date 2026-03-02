@@ -454,8 +454,7 @@ function sendAnswer(choice, clickedBtn) {
             }).then(() => console.log('✓ Score updated +10'));
         }
 
-        // 3. Show instant score popup
-        showScorePopup(currentQuestion);
+        // Score popup will show when admin reveals the answer (status='revealed')
 
     }).catch(err => {
         console.error('Submit error:', err);
