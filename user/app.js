@@ -439,29 +439,35 @@ function sendAnswer(choice, clickedBtn) {
         clickedBtn.classList.add('selected');
     }
 
-    // 2. Save the answer directly to Firestore (avoids CORS issues with emulator)
+    // 2. Save the answer directly to Firestore
     const answerKey = ['A', 'B', 'C', 'D'][choice] || choice;
+    const isCorrect = currentQuestion && currentQuestion.correctIndex === choice;
+
     db.collection('responses').add({
         teamId: teamId,
         teamName: teamName,
         questionIndex: currentQuestionIndex,
         selectedOption: choice,
         selectedAnswer: answerKey,
+        isCorrect: isCorrect,
         submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
-        console.log('✓ Answer submitted:', answerKey);
+        console.log('✓ Answer submitted:', answerKey, isCorrect ? '(correct)' : '(wrong)');
 
-        // Also update team score if answer is correct
-        if (currentQuestion && currentQuestion.correctIndex === choice) {
-            // Correct answer: award 10 points
+        // Update team score if answer is correct
+        if (isCorrect) {
             db.collection('teams').doc(teamId).update({
                 score: firebase.firestore.FieldValue.increment(10)
             }).then(() => console.log('✓ Score updated +10'));
         }
+
+        // 3. Show instant score popup
+        showScorePopup(currentQuestion);
+
     }).catch(err => {
         console.error('Submit error:', err);
-        // If submission fails, allow retry
         hasSubmitted = false;
+        selectedAnswer = null;
         allBtns.forEach(b => {
             b.disabled = false;
         });
@@ -502,22 +508,25 @@ function showScorePopup(q) {
     } else {
         popupValue.textContent = '0';
         popupValue.className = 'score-popup-value wrong';
-        popupLabel.textContent = 'WRONG';
+        popupLabel.textContent = 'WRONG ANSWER';
         popupLabel.style.color = '#ff3e3e';
     }
 
+    // Force animation restart by toggling display
+    popup.classList.add('hidden');
+    void popup.offsetHeight; // force reflow
     popup.classList.remove('hidden');
 
-    // Also update the BATCH YIELD display
+    // Update the BATCH YIELD score display
     if (isCorrect) {
         const scoreEl = document.getElementById('label-score');
         if (scoreEl) scoreEl.textContent = parseInt(scoreEl.textContent || '0') + 10;
     }
 
-    // Auto-hide after 2.5 seconds
+    // Auto-hide after 3 seconds
     setTimeout(() => {
         popup.classList.add('hidden');
-    }, 2500);
+    }, 3000);
 }
 
 // --- User leaderboard listener ---
