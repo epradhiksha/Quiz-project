@@ -49,9 +49,9 @@ auth.onAuthStateChanged(user => {
         auth.signInAnonymously().then(cred => {
             console.log('Signed in anonymously:', cred && cred.user && cred.user.uid);
         }).catch(err => {
-            console.error('Anonymous sign-in failed', err);
-            const errEl = document.getElementById('login-error');
-            if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Auth failed: ' + err.message; }
+            // Auth is optional — Firestore rules allow unauthenticated access.
+            // Log the error but do NOT block the user from joining.
+            console.warn('Anonymous sign-in failed (non-blocking):', err.code, err.message);
         });
     }
 });
@@ -69,15 +69,8 @@ function populatePresence(uid) {
 
 // --- Initialization ---
 function init() {
-    // ensure user is authenticated early on
-    auth.signInAnonymously().catch(err => {
-        console.error('Anonymous sign-in failed during init:', err);
-        const errEl = document.getElementById('login-error');
-        if (errEl) {
-            errEl.style.display = 'block';
-            errEl.textContent = 'Auth error: ' + err.message;
-        }
-    });
+    // Auth is handled by onAuthStateChanged above.
+    // Do NOT call signInAnonymously again here to avoid duplicate attempts.
 
     const joinBtn = document.getElementById('join-btn');
     if (joinBtn) {
