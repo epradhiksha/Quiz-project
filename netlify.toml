@@ -1,0 +1,14 @@
+[build]
+  publish = "."
+
+# Redirect /admin paths to admin/index.html
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
+# Redirect everything else to user/index.html
+[[redirects]]
+  from = "/*"
+  to = "/user/index.html"
+  status = 200
