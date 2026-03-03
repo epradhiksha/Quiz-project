@@ -144,6 +144,13 @@ async function loadQuestions() {
                 answerRevealed: false,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+        } else {
+            // Always sync totalQuestions to match actual questions in DB
+            const existingTotal = stateSnap.data().totalQuestions;
+            if (existingTotal !== questions.length) {
+                console.log(`Updating totalQuestions: ${existingTotal} → ${questions.length}`);
+                await HB.quizStateRef.update({ totalQuestions: questions.length });
+            }
         }
 
         // If we already know current question (from state listener) render it

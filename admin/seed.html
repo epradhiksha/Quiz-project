@@ -299,11 +299,33 @@
             log("⚡ Starting question seed...", "inf");
             let count = 0;
             try {
+                // First, clear all existing questions to avoid duplicates/stale data
+                log("🗑 Clearing existing questions...", "inf");
+                const existingSnap = await HB.questionsRef.get();
+                const delBatch = HB.db.batch();
+                existingSnap.docs.forEach(d => delBatch.delete(d.ref));
+                await delBatch.commit();
+                log(`✓ Cleared ${existingSnap.size} old questions`, "ok");
+
+                // Now add the fresh set
                 for (const q of SAMPLE_QUESTIONS) {
                     await HB.questionsRef.add(q);
                     count++;
                     log(`✓ Added: Q${count} — ${q.questionText.substring(0, 50)}...`, "ok");
                 }
+
+                // Update quiz state with correct totalQuestions
+                await HB.quizStateRef.set({
+                    status: "idle",
+                    currentQuestion: 0,
+                    totalQuestions: SAMPLE_QUESTIONS.length,
+                    questionStartTime: null,
+                    questionEndTime: null,
+                    timeLimitSeconds: 15,
+                    answerRevealed: false,
+                    updatedAt: null
+                }, { merge: true });
+
                 log(`\n✅ ${count} questions seeded successfully!`, "ok");
                 log(`📋 Quiz is ready to run.`, "ok");
             } catch (e) {
