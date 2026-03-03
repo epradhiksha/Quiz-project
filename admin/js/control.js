@@ -59,19 +59,31 @@ let currentQ = null;
 
 // --- sample questions (same as seeder) in case the database is empty ---
 const SAMPLE_QUESTIONS = [
-    { order: 0, questionText: "Which data structure uses LIFO (Last In First Out) principle?", options: ["Queue", "Stack", "Linked List", "Tree"], correctAnswer: "B", basePoints: 100 },
-    { order: 1, questionText: "What is the time complexity of binary search?", options: ["O(n)", "O(n²)", "O(log n)", "O(1)"], correctAnswer: "C", basePoints: 100 },
-    { order: 2, questionText: "Which of the following is NOT a JavaScript data type?", options: ["Undefined", "Boolean", "Float", "Symbol"], correctAnswer: "C", basePoints: 100 },
-    {
-        order: 3, questionText: "What does HTTP stand for?", options: [
-            "HyperText Transfer Protocol",
-            "HyperText Transmission Protocol",
-            "High Transfer Test Protocol",
-            "Host Transfer Text Protocol"
-        ], correctAnswer: "A", basePoints: 100
-    },
-    { order: 4, questionText: "Which sorting algorithm has the best average-case complexity?", options: ["Bubble Sort", "Insertion Sort", "Merge Sort", "Selection Sort"], correctAnswer: "C", basePoints: 100 },
-    { order: 5, questionText: "In Python, what is the output of: type([])?", options: ["<class 'array'>", "<class 'list'>", "<class 'tuple'>", "<class 'dict'>"], correctAnswer: "B", basePoints: 100 }
+    // 🟢 EASY — Python Basics, Trivia & Simple Output (100 pts)
+    { order: 0, difficulty: "easy", questionText: "Which function returns the length of a list, tuple, or string?", options: ["size()", "count()", "length()", "len()"], correctAnswer: "D", basePoints: 100 },
+    { order: 1, difficulty: "easy", questionText: "Which function converts an iterable into a list of (index, value) pairs?", options: ["iter()", "zip()", "enumerate()", "map()"], correctAnswer: "C", basePoints: 100 },
+    { order: 2, difficulty: "easy", questionText: "What function is used to check if all elements in an iterable are true?", options: ["any()", "all()", "bool()", "true()"], correctAnswer: "B", basePoints: 100 },
+    { order: 3, difficulty: "easy", questionText: "Which function returns the ASCII value of a character?", options: ["ascii()", "char()", "ord()", "chr()"], correctAnswer: "C", basePoints: 100 },
+    { order: 4, difficulty: "easy", questionText: "Which function converts a number to its corresponding Unicode character?", options: ["ord()", "unicode()", "char()", "chr()"], correctAnswer: "D", basePoints: 100 },
+    { order: 5, difficulty: "easy", questionText: "In which year was Python officially released?", options: ["1985", "1989", "1991", "2000"], correctAnswer: "C", basePoints: 100 },
+    { order: 6, difficulty: "easy", questionText: "Python was created as a successor to which programming language?", options: ["Java", "ABC", "C++", "Pascal"], correctAnswer: "B", basePoints: 100 },
+    { order: 7, difficulty: "easy", questionText: "a = [1,2,3]\nb = [1,2,3]\nprint(a is b)\nprint(a in b)\n\nWhat is the output?", options: ["True True", "False True", "False False", "Error"], correctAnswer: "C", basePoints: 100 },
+    { order: 8, difficulty: "easy", questionText: "a = [1,2,3]\nb = [[1,2,3]]\nprint(a in b)\n\nWhat is the output?", options: ["True", "False", "Error", "None"], correctAnswer: "A", basePoints: 100 },
+    { order: 9, difficulty: "easy", questionText: "print(5/2)\nprint(5//2)\n\nWhat is the output?", options: ["2 and 2", "2 and 2.5", "2.5 and 2.5", "2.5 and 2"], correctAnswer: "D", basePoints: 100 },
+    { order: 10, difficulty: "easy", questionText: "print(5 or 10)\nprint(5 and 10)\n\nWhat is the output?", options: ["5 5", "5 10", "10 10", "Error"], correctAnswer: "B", basePoints: 100 },
+    // 🟡 MEDIUM — ML / AI Concepts (150 pts)
+    { order: 11, difficulty: "medium", questionText: "Which function in NumPy computes the dot product of two arrays?", options: ["numpy.multiply()", "numpy.dot()", "numpy.sum()", "numpy.cross()"], correctAnswer: "B", basePoints: 150 },
+    { order: 12, difficulty: "medium", questionText: "Which Scikit-learn function splits data into training and testing sets?", options: ["split_data()", "train_test()", "train_test_split()", "data_split()"], correctAnswer: "C", basePoints: 150 },
+    { order: 13, difficulty: "medium", questionText: "Which metric function evaluates how far predictions deviate from actual values?", options: ["accuracy_score()", "recall_score()", "mean_squared_error()", "f1_score()"], correctAnswer: "C", basePoints: 150 },
+    { order: 14, difficulty: "medium", questionText: "Which activation function outputs values between 0 and 1?", options: ["ReLU", "Softmax", "Tanh", "Sigmoid"], correctAnswer: "D", basePoints: 150 },
+    { order: 15, difficulty: "medium", questionText: "Which loss function is commonly used for binary classification?", options: ["mean_squared_error", "categorical_crossentropy", "binary_crossentropy", "hinge_loss"], correctAnswer: "C", basePoints: 150 },
+    { order: 16, difficulty: "medium", questionText: "Which algorithm uses a heuristic function to find the optimal path?", options: ["Breadth First Search", "Depth First Search", "A* Search", "Minimax"], correctAnswer: "C", basePoints: 150 },
+    // 🔴 HARD — Code Debugging & Fix-the-Bug (200 pts)
+    { order: 17, difficulty: "hard", questionText: "X = np.array([1, 2, 3])\nw = np.array([[0.2], [0.5], [0.1]])\ny = X @ w\n\nWhat will fix the shape issue to make output (1,1)?", options: ["X = np.array([[1, 2, 3]])", "w = np.array([0.2, 0.5, 0.1])", "y = np.dot(w, X)", "X = X.reshape(3, 1)"], correctAnswer: "A", basePoints: 200 },
+    { order: 18, difficulty: "hard", questionText: "X = [[1],[2],[3],[4]]\ny = [0,1,0]\nX_train, X_test, y_train, y_test = train_test_split(X, y)\n\nWhich option fixes the error?", options: ["y = [0,1,0,1]", "X = [[1],[2],[3]]", "X = [1,2,3]", "train_test_split(y, X)"], correctAnswer: "A", basePoints: 200 },
+    { order: 19, difficulty: "hard", questionText: "a = [[1,2],[3,4]]\nb = a.copy()\nb[0][0] = 99\nprint(a)\n\nHow do you prevent modifying `a`?", options: ["import copy; b = copy.deepcopy(a)", "b = list(a)", "b = a[:]", "b = tuple(a)"], correctAnswer: "A", basePoints: 200 },
+    { order: 20, difficulty: "hard", questionText: "x = [1,2,3]\ny = [1,2,3]\nif x is y:\n    print(\"Equal\")\n\nWhich fix correctly compares values?", options: ["if x == y:", "if id(x) == id(y):", "if x.equals(y):", "if list(x) is list(y):"], correctAnswer: "A", basePoints: 200 },
+    { order: 21, difficulty: "hard", questionText: "def update(d, key, value):\n    temp = d\n    temp[key] = value\n    return temp\n\ndata = {\"a\":1}\nnew_data = update(data, \"b\", 2)\n\nWhat is the correct fix to avoid mutating `data`?", options: ["temp = d.copy()", "temp = dict(d)", "import copy; temp = copy.deepcopy(d)", "All of the above"], correctAnswer: "D", basePoints: 200 }
 ];
 let timerInterval = null;
 let timerSeconds = 15;
