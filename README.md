@@ -13,8 +13,6 @@ The system allows:
 
 - 👥 Multiple teams to participate
 - 🎛 Admin to control question flow in real time
-- ⏱ 15-second timer per question
-- 🧮 Time-based dynamic scoring
 - 🏆 Automatic leaderboard ranking
 - 🔒 Secure score validation using Cloud Functions
 
@@ -149,7 +147,7 @@ Each document contains:
 # 🧮 Scoring Logic
 
 If answer is correct:
-Score = BasePoints + (RemainingTime × Multiplier)
+Score = BasePoints 
 
 If answer is incorrect:
 Score=0 
@@ -165,7 +163,6 @@ Duplicate submissions are blocked.
 ## Main Branches
 
 - `main` → Production-ready code
-- `develop` → Integration branch
 
 ## Feature Branches
 
@@ -238,8 +235,3 @@ firebase emulators:start
 > 5. Check leaderboard updates in real time and unauthorized score writes
 >    are blocked by security rules.
 
-## 6️⃣ Deploy to Production
-
-```bash
-firebase deploy
-```
