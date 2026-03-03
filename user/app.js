@@ -33,6 +33,14 @@ const screens = {
 // --- Authentication & presence ---
 auth.onAuthStateChanged(user => {
     console.log('auth.onAuthStateChanged, user=', user);
+
+    // If this device was disqualified, block immediately — no re-entry
+    if (localStorage.getItem('hb_disqualified') === 'true') {
+        const overlay = document.getElementById('kicked-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+        return; // permanently blocked
+    }
+
     if (user) {
         // restore team from storage
         teamId = localStorage.getItem('teamId');
@@ -133,32 +141,27 @@ function setupTabSwitchDetection() {
 
 async function handleTabSwitch() {
     try {
-        // 1. Flag the team as "tab switched" so admin sees it
+        // 1. Mark team as disqualified in Firestore (keep it, don't delete)
         if (teamId) {
             await db.collection('teams').doc(teamId).update({
                 tabSwitched: true,
+                disqualified: true,
                 tabSwitchedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
 
-        // 2. Remove the team from the quiz
-        if (teamId) {
-            await db.collection('teams').doc(teamId).delete();
-        }
-
-        // 3. Clear local session
-        localStorage.removeItem('teamId');
-        localStorage.removeItem('teamName');
-        localStorage.removeItem('leadName');
+        // 2. Permanently ban this device — survives refresh & re-entry attempts
+        localStorage.setItem('hb_disqualified', 'true');
         teamId = null;
 
-        // 4. Show the disqualified overlay
+        // 3. Show the disqualified overlay
         const overlay = document.getElementById('kicked-overlay');
         if (overlay) overlay.classList.remove('hidden');
 
     } catch (e) {
         console.error('Error handling tab switch:', e);
-        // Still show the overlay even if Firestore operations fail
+        // Still ban and show overlay even if Firestore update fails
+        localStorage.setItem('hb_disqualified', 'true');
         const overlay = document.getElementById('kicked-overlay');
         if (overlay) overlay.classList.remove('hidden');
     }
@@ -202,6 +205,15 @@ async function handleLogin() {
     if (!teamName || !leadName) {
         err.style.display = 'block';
         err.textContent = 'Team and lead are required';
+        return;
+    }
+
+    // Block disqualified users from re-entering
+    if (localStorage.getItem('hb_disqualified') === 'true') {
+        err.style.display = 'block';
+        err.textContent = '⛔ You have been disqualified for tab-switching. You cannot rejoin.';
+        const overlay = document.getElementById('kicked-overlay');
+        if (overlay) overlay.classList.remove('hidden');
         return;
     }
 
