@@ -205,6 +205,9 @@ async function handleLogin() {
         return;
     }
 
+    // Normalize team name for duplicate checking (case-insensitive)
+    const normalizedName = teamName.toUpperCase().replace(/\s+/g, '_');
+
     document.getElementById('display-team-id').textContent = `PROJECT: ${teamName.toUpperCase()}`;
     err.style.display = 'none';
 
@@ -212,36 +215,31 @@ async function handleLogin() {
         console.log('handleLogin: starting with teamId=', teamId);
         // If we already have a teamId in localStorage respect that.
         if (!teamId) {
-            // Check if a team with this name already exists. If so, join it.
-            const existing = await db.collection('teams').where('teamName', '==', teamName).limit(1).get();
-            if (!existing.empty) {
-                const doc = existing.docs[0];
-                teamId = doc.id;
-                console.log('handleLogin: found existing team, joining:', teamId);
-                // Merge lead into members array if not present
-                const data = doc.data();
-                const members = Array.isArray(data.members) ? data.members.slice() : [];
-                if (leadName && !members.includes(leadName)) members.unshift(leadName);
-                await db.collection('teams').doc(teamId).set({ teamName, members }, { merge: true });
-                localStorage.setItem('teamId', teamId);
-                localStorage.setItem('teamName', teamName);
-                localStorage.setItem('leadName', leadName);
-                console.log('✓ Joined existing team:', { teamId, teamName, leadName });
-            } else {
-                // No existing team — create on the spot
-                console.log('handleLogin: creating new team:', teamName);
-                const docRef = await db.collection('teams').add({
-                    teamName,
-                    score: 0,
-                    createdAt: new Date(),
-                    members: [leadName]
-                });
-                teamId = docRef.id;
-                console.log('✓ Team created successfully in Firestore with ID:', teamId);
-                localStorage.setItem('teamId', teamId);
-                localStorage.setItem('teamName', teamName);
-                localStorage.setItem('leadName', leadName);
+            // Use normalized name as doc ID — this prevents duplicates atomically
+            const teamDocRef = db.collection('teams').doc(normalizedName);
+            const existingDoc = await teamDocRef.get();
+
+            if (existingDoc.exists) {
+                // Team name is already taken — block it
+                err.style.display = 'block';
+                err.textContent = `Project name "${teamName}" is already taken! Choose a different name.`;
+                console.log('✗ Team name already taken:', teamName);
+                return;
             }
+
+            // Create new team with normalized name as doc ID
+            console.log('handleLogin: creating new team:', teamName);
+            await teamDocRef.set({
+                teamName,
+                score: 0,
+                createdAt: new Date(),
+                members: [leadName]
+            });
+            teamId = normalizedName;
+            console.log('✓ Team created successfully in Firestore with ID:', teamId);
+            localStorage.setItem('teamId', teamId);
+            localStorage.setItem('teamName', teamName);
+            localStorage.setItem('leadName', leadName);
         } else {
             console.log('handleLogin: updating existing team from storage:', teamId);
             await db.collection('teams').doc(teamId).set({ teamName, members: [leadName] }, { merge: true });
