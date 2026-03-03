@@ -264,7 +264,14 @@
                 basePoints: 100
             },
             {
-                order: 20,
+                order: 18,
+                questionText: "Which function returns the length of a list, tuple, or string?",
+                options: ["size()", "count()", "length()", "len()"],
+                correctAnswer: "D",
+                basePoints: 100
+            },
+            {
+                order: 19,
                 questionText: "def update(d, key, value):\n    temp = d\n    temp[key] = value\n    return temp\n\ndata = {\"a\":1}\nnew_data = update(data, \"b\", 2)\n\nWhat is the correct fix to avoid mutating `data`?",
                 options: [
                     "temp = d.copy()",
