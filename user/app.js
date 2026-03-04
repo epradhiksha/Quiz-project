@@ -35,11 +35,34 @@ const screens = {
 auth.onAuthStateChanged(user => {
     console.log('auth.onAuthStateChanged, user=', user);
 
-    // If this device was disqualified, block immediately — no re-entry
+    // If this device was disqualified, check whether the quiz has been
+    // restarted since then (new restartToken in quiz/metadata). If it was,
+    // clear localStorage so the user can rejoin cleanly.
     if (localStorage.getItem('hb_disqualified') === 'true') {
-        const overlay = document.getElementById('kicked-overlay');
-        if (overlay) overlay.classList.remove('hidden');
-        return; // permanently blocked
+        // Async check — don't block the rest of the handler
+        db.doc('quiz/metadata').get().then(snap => {
+            if (snap.exists) {
+                const serverToken = snap.data().restartToken
+                    ? String(snap.data().restartToken) : null;
+                const localToken = localStorage.getItem('hb_restart_token');
+                if (serverToken && serverToken !== localToken) {
+                    // Quiz was restarted after this device was banned — lift the ban
+                    localStorage.clear();
+                    localStorage.setItem('hb_restart_token', serverToken);
+                    const overlay = document.getElementById('kicked-overlay');
+                    if (overlay) overlay.classList.add('hidden');
+                    switchScreen('login');
+                    return;
+                }
+            }
+            // Quiz NOT restarted — keep showing the overlay
+            const overlay = document.getElementById('kicked-overlay');
+            if (overlay) overlay.classList.remove('hidden');
+        }).catch(() => {
+            const overlay = document.getElementById('kicked-overlay');
+            if (overlay) overlay.classList.remove('hidden');
+        });
+        return; // permanently blocked until restart clears the flag above
     }
 
     if (user) {
@@ -76,7 +99,31 @@ function populatePresence(uid) {
     db.collection('sessions').doc(uid + '_' + sessionId).set({ deviceInfo: navigator.userAgent, connectedAt: firebase.firestore.FieldValue.serverTimestamp() });
 }
 
-// --- Initialization ---
+// --- Rejoin handler (called from REJOIN QUIZ button) ---
+// Checks whether the quiz was restarted since this device was disqualified.
+// If yes  → clears localStorage (lifts the ban) before reloading so the
+//           user lands on the login screen instead of the kicked overlay.
+// If no   → just reloads; they remain disqualified.
+async function handleRejoinClick() {
+    try {
+        const snap = await db.doc('quiz/metadata').get();
+        if (snap.exists) {
+            const serverToken = snap.data().restartToken
+                ? String(snap.data().restartToken) : null;
+            const localToken = localStorage.getItem('hb_restart_token');
+            if (serverToken && serverToken !== localToken) {
+                // Quiz was restarted after this device was banned — lift the ban
+                localStorage.clear();
+                localStorage.setItem('hb_restart_token', serverToken);
+            }
+        }
+    } catch (e) {
+        console.error('Rejoin check failed:', e);
+    }
+    location.reload();
+}
+
+
 function init() {
     // Auth is handled by onAuthStateChanged above.
     // Do NOT call signInAnonymously again here to avoid duplicate attempts.
@@ -153,6 +200,9 @@ async function handleTabSwitch() {
 
         // 2. Permanently ban this device — survives refresh & re-entry attempts
         localStorage.setItem('hb_disqualified', 'true');
+        localStorage.removeItem('teamId');   // must clear so listenTeamDeleted guard works
+        localStorage.removeItem('teamName');
+        localStorage.removeItem('leadName');
         teamId = null;
 
         // 3. Show the disqualified overlay
