@@ -21,6 +21,7 @@ let timeRemaining = 0;
 let hasSubmitted = false;
 let selectedAnswer = null;  // tracks the user's selected answer index
 let scorePopupShown = false;  // prevent duplicate popups
+let knownRestartToken = localStorage.getItem('hb_restart_token') || null; // tracks current quiz session
 
 // --- DOM elements ---
 const screens = {
@@ -311,6 +312,45 @@ function listenQuizState() {
         }
 
         const state = snap.data();
+
+        // ── Restart detection ──────────────────────────────────────────────────
+        // When the admin restarts the quiz a new restartToken (epoch ms) is
+        // written to quiz/metadata. If the token we have stored locally is
+        // different (or we have none), treat this as a brand-new session:
+        // wipe ALL localStorage so disqualified users can log in again.
+        const incomingToken = state.restartToken ? String(state.restartToken) : null;
+        if (incomingToken && incomingToken !== knownRestartToken) {
+            // New session detected — clear everything
+            localStorage.clear();
+            localStorage.setItem('hb_restart_token', incomingToken);
+            knownRestartToken = incomingToken;
+
+            // Reset all in-memory state
+            teamId = null;
+            teamName = '';
+            leadName = '';
+            currentQuestionIndex = null;
+            currentQuestion = null;
+            hasSubmitted = false;
+            selectedAnswer = null;
+            scorePopupShown = false;
+
+            // Hide kicked overlay in case this user was disqualified
+            const kickedOverlay = document.getElementById('kicked-overlay');
+            if (kickedOverlay) kickedOverlay.classList.add('hidden');
+
+            // Send everyone back to the login screen
+            switchScreen('login');
+            const errEl = document.getElementById('login-error');
+            if (errEl) {
+                errEl.style.display = 'block';
+                errEl.textContent = 'Quiz was restarted by admin. Please rejoin.';
+                errEl.style.color = 'var(--meth-blue)';
+            }
+            return;
+        }
+        // ── End restart detection ───────────────────────────────────────────────
+
         // IMPORTANT: rename destructured currentQuestion to stateQuestionIdx
         // to avoid shadowing the module-level `currentQuestion` variable
         const stateQuestionIdx = state.currentQuestion;

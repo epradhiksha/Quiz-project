@@ -591,7 +591,8 @@ confirmYes && confirmYes.addEventListener("click", async () => {
 
             await Promise.all(deletePromises);
 
-            // Reset quiz metadata to idle
+            // Reset quiz metadata to idle — include a fresh restartToken so
+            // user clients know this is a brand-new session and can clear localStorage
             await HB.quizStateRef.set({
                 status: 'idle',
                 currentQuestion: 0,
@@ -600,6 +601,7 @@ confirmYes && confirmYes.addEventListener("click", async () => {
                 questionEndTime: null,
                 timeLimitSeconds: TIMER_DURATION,
                 answerRevealed: false,
+                restartToken: Date.now(),   // unique token per restart session
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
