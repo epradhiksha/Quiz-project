@@ -32,7 +32,7 @@ const db = getFirestore();
 // Realtime Database no longer used; presence now in Firestore
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ADMIN_EMAIL = "jecaids@gmail.com"; // Actual admin email
+const ADMIN_EMAIL = "admin@example.com"; // Actual admin email
 const POINTS_PER_CORRECT = 10;
 const TIME_BONUS_MAX = 5;       // Max bonus points for fast answer
 

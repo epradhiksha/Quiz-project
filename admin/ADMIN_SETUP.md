@@ -40,8 +40,8 @@ const FIREBASE_CONFIG = {
 Since we use Firebase Auth for secure admin writes:
 
 1. Firebase Console → **Authentication** → Users → **Add User**
-2. Email: `jecaids@gmail.com`
-3. Password: `JEC12345AIDS`
+2. Email: `admin@example.com`
+3. Password: `admin123`
 
 > **Note:** The frontend hardcodes these credentials. The Firebase Auth user allows the admin to write to protected Firestore collections.
 

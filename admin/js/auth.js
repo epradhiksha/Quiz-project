@@ -3,8 +3,8 @@
 // Hardcoded credentials validated client-side
 // ============================================================
 
-const ADMIN_EMAIL = "jecaids@gmail.com";
-const ADMIN_PASSWORD = "JEC12345AIDS";
+const ADMIN_EMAIL = "admin@example.com";
+const ADMIN_PASSWORD = "admin123";
 
 const SESSION_KEY = "hb_admin_session";
 

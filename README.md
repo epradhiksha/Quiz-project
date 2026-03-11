@@ -317,7 +317,7 @@ Navigate to **http://localhost:5000/admin/seed.html** and use the seeder UI to p
 
 ### 🧪 Test Scenarios (Emulator)
 
-1. Sign in as admin (`jecaids@gmail.com`) and call `startQuestion` / `endQuestion` / `revealAnswer`.
+1. Sign in as admin (`admin@example.com`) and call `startQuestion` / `endQuestion` / `revealAnswer`.
 2. Open a second browser tab, login anonymously as a user, join a team, and follow the live quiz.
 3. Submit answers rapidly, attempt duplicates or late submissions — the Cloud Function must reject them.
 4. Verify the `correctAnswer` field is **not readable** from a regular client session.
